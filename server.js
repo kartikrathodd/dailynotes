@@ -1,45 +1,44 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-
+const express = require("express");
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const http = require("http").createServer(app);
+const io = require("socket.io")(http);
+const bodyParser = require("body-parser");
+const path = require("path");
+const axios = require("axios");
 
-const TELEGRAM_BOT_TOKEN = '7949867945:AAGV8IzWc9jbtEOZJ9Xo2-1V_DMgyhZ4Aw0';
-const TELEGRAM_USER_ID = '1419108159';
-
-app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, "public")));
 
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
-});
+const TELEGRAM_BOT_TOKEN = "7949867945:AAGV8IzWc9jbtEOZJ9Xo2-1V_DMgyhZ4Aw0";
+const TELEGRAM_USER_ID = "1419108159";
 
-io.on('connection', (socket) => {
-  socket.on('joinRoom', (room) => {
+io.on("connection", (socket) => {
+  socket.on("join", (room) => {
     socket.join(room);
-
-    // 🔔 Telegram alert only when room 0327 is joined
-    if (room === '0327') {
+    
+    // Alert owner via Telegram only if room code is "0327"
+    if (room === "0327") {
       axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         chat_id: TELEGRAM_USER_ID,
-        text: '🔐 She has entered secret room 0327 on DailyNotes!',
-      }).catch((err) => {
-        console.error('Telegram error:', err.message);
-      });
+        text: `🟢 Someone joined the DailyNotes room with code 0327.`,
+      }).catch((err) => console.error("Telegram error:", err));
     }
-  });
 
-  socket.on('chatMessage', ({ room, message }) => {
-    socket.to(room).emit('chatMessage', message);
+    // Notify others in the room
+    socket.to(room).emit("partner_joined");
+    
+    // Listen for messages in the room
+    socket.on("message", (data) => {
+      io.to(data.room).emit("message", data.text);
+    });
   });
+});
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html")); // or notes.html if renamed
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+http.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
