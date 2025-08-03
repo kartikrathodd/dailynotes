@@ -1,39 +1,45 @@
-const express = require("express");
+const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const server = http.createServer(app);
+const io = socketIo(server);
 
-app.use(express.static("public")); // Serve static files like notes.html
+const TELEGRAM_BOT_TOKEN = '7949867945:AAGV8IzWc9jbtEOZJ9Xo2-1V_DMgyhZ4Aw0';
+const TELEGRAM_USER_ID = '1419108159';
 
-// Redirect root to /notes.html
-app.get("/", (req, res) => {
-  res.sendFile(__dirname + "/public/notes.html");
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
 });
 
-const roomUsers = {};
-
-io.on("connection", socket => {
-  socket.on("join", room => {
+io.on('connection', (socket) => {
+  socket.on('joinRoom', (room) => {
     socket.join(room);
-    socket.room = room;
 
-    if (!roomUsers[room]) roomUsers[room] = [];
-    roomUsers[room].push(socket.id);
-
-    socket.to(room).emit("partner_joined");
-  });
-
-  socket.on("message", data => {
-    io.to(data.room).emit("message", data.text);
-  });
-
-  socket.on("disconnect", () => {
-    if (socket.room && roomUsers[socket.room]) {
-      roomUsers[socket.room] = roomUsers[socket.room].filter(id => id !== socket.id);
-      if (roomUsers[socket.room].length === 0) delete roomUsers[socket.room];
+    // 🔔 Telegram alert only when room 0327 is joined
+    if (room === '0327') {
+      axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        chat_id: TELEGRAM_USER_ID,
+        text: '🔐 She has entered secret room 0327 on DailyNotes!',
+      }).catch((err) => {
+        console.error('Telegram error:', err.message);
+      });
     }
+  });
+
+  socket.on('chatMessage', ({ room, message }) => {
+    socket.to(room).emit('chatMessage', message);
   });
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
