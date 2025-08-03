@@ -7,8 +7,8 @@
   <style>
     body {
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f5f5f5;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9f9f9;
       display: flex;
       flex-direction: column;
       height: 100vh;
@@ -21,15 +21,6 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-    }
-
-    header h2 {
-      margin: 0;
-    }
-
-    #participants {
-      font-size: 14px;
-      opacity: 0.9;
     }
 
     #chat {
@@ -52,16 +43,27 @@
 
     .msg {
       margin: 10px 0;
-      padding: 8px 12px;
-      background: #e0e0e0;
-      border-radius: 5px;
-      max-width: 80%;
+      padding: 10px 15px;
+      border-radius: 6px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .you {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .them {
+      background: #eee;
+      align-self: flex-start;
     }
 
     .system-msg {
       font-style: italic;
-      color: #888;
-      font-size: 14px;
+      color: #777;
+      text-align: center;
+      margin: 10px 0;
     }
 
     #inputArea {
@@ -111,16 +113,20 @@
     const socket = io();
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get("room");
-    let userCount = 1;
+    let userID = localStorage.getItem("userID");
+    if (!userID) {
+      userID = Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("userID", userID);
+    }
 
     document.getElementById("roomTitle").innerText = `Room: ${room}`;
-    socket.emit("join", room);
+    socket.emit("join", { room, userID });
 
-    socket.on("message", msg => {
-      const el = document.createElement("div");
-      el.className = "msg";
-      el.innerText = msg;
-      document.getElementById("messages").appendChild(el);
+    socket.on("message", ({ text, sender }) => {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg " + (sender === userID ? "you" : "them");
+      msgDiv.innerText = text;
+      document.getElementById("messages").appendChild(msgDiv);
       scrollToBottom();
     });
 
@@ -133,25 +139,25 @@
     });
 
     socket.on("user_count", count => {
-      userCount = count;
       document.getElementById("participants").innerText = `Participants: ${count}`;
     });
 
     function sendMsg() {
-      const msg = document.getElementById("msg").value;
-      if (!msg.trim()) return;
-      socket.emit("message", { room, text: msg });
+      const msg = document.getElementById("msg").value.trim();
+      if (!msg) return;
+      socket.emit("message", { room, text: msg, sender: userID });
       document.getElementById("msg").value = "";
     }
 
     function scrollToBottom() {
-      const messagesDiv = document.getElementById("messages");
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      const messages = document.getElementById("messages");
+      messages.scrollTop = messages.scrollHeight;
     }
 
     window.addEventListener("beforeunload", () => {
-      socket.emit("leave", room);
+      socket.emit("leave", { room, userID });
     });
   </script>
 </body>
 </html>
+
