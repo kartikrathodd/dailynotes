@@ -4,66 +4,98 @@
   <title>Daily Notes</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
+      font-family: 'Arial Rounded MT Bold', sans-serif;
+      background-color: #f7f8fa;
+      text-align: center;
+      margin: 0;
+      padding: 0;
     }
-    #chat {
-      margin-top: 20px;
-      display: none;
-    }
-    #messages {
-      border: 1px solid #ccc;
-      padding: 10px;
-      height: 200px;
-      overflow-y: scroll;
-    }
-    input {
-      margin-top: 10px;
-      padding: 5px;
-    }
-    .flower-box {
-      border: 2px dashed #ffc0cb;
+
+    .kahoot-header {
+      background-color: #46178f;
+      color: white;
       padding: 20px;
-      background-color: #fff0f5;
-      margin-top: 20px;
+      font-size: 2rem;
     }
-    .flower-box p {
-      font-size: 24px;
+
+    #login, #chat {
+      margin-top: 50px;
     }
+
+    input {
+      padding: 10px;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
     button {
-      padding: 6px 12px;
-      margin-top: 10px;
+      background-color: #46178f;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border: none;
       cursor: pointer;
     }
-    @keyframes flowerFall {
-      0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+
+    #messages {
+      margin: 20px auto;
+      width: 80%;
+      height: 250px;
+      border: 1px solid #ccc;
+      overflow-y: scroll;
+      background: #fff;
+      text-align: left;
+      padding: 10px;
     }
-    .flower {
+
+    .you { color: green; }
+    .them { color: blue; }
+
+    #flowerPopup {
+      font-size: 40px;
+      margin: 20px 0;
+    }
+
+    .flowerRain {
       position: fixed;
-      top: -50px;
-      font-size: 30px;
-      animation: flowerFall 4s linear forwards;
+      top: 0;
+      left: 0;
       pointer-events: none;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      animation: fall 4s linear forwards;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(-100px); opacity: 1; }
+      100% { transform: translateY(100vh); opacity: 0; }
+    }
+
+    #participants {
+      font-size: 1rem;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h2>Daily Notes</h2>
-  <input type="password" id="pin" placeholder="Enter Room PIN">
-  <button onclick="joinRoom()">Open</button>
+  <div class="kahoot-header">Daily Notes</div>
 
-  <div id="flowerBox" class="flower-box" style="display:none;">
-    <p id="flowerEmoji"></p>
-    <button onclick="acceptFlower()">Accept (from your boy)</button>
+  <div id="login">
+    <h2>Enter Room Pin</h2>
+    <input type="password" id="pin" placeholder="Room Pin">
+    <br>
+    <button onclick="joinRoom()">Join</button>
   </div>
 
-  <div id="chat">
-    <p id="status" style="color: green;"></p>
-    <p id="participants"></p>
+  <div id="chat" style="display:none;">
+    <div id="participants">Participants: 1</div>
+    <div id="flowerPopup"></div>
+    <button id="acceptBtn" onclick="acceptFlower()" style="display:none;">Accept (from your boy)</button>
     <div id="messages"></div>
-    <input id="msg" placeholder="Write your note...">
+    <input id="msg" placeholder="Write a message">
     <button onclick="sendMsg()">Send</button>
+    <br><br>
     <button onclick="exitRoom()">Exit</button>
   </div>
 
@@ -71,64 +103,72 @@
   <script>
     const socket = io();
     let currentRoom = "";
-    let username = Math.random().toString(36).substring(7); // random ID for user
 
     function joinRoom() {
-      currentRoom = document.getElementById('pin').value;
-      socket.emit("join", { room: currentRoom, user: username });
-    }
-
-    function acceptFlower() {
-      document.getElementById("flowerBox").style.display = "none";
+      currentRoom = document.getElementById("pin").value;
+      if (!currentRoom) return;
+      document.getElementById("login").style.display = "none";
       document.getElementById("chat").style.display = "block";
-      showFlowerRain();
+      socket.emit("join", currentRoom);
     }
 
     function sendMsg() {
       const msg = document.getElementById("msg").value;
-      socket.emit("message", { room: currentRoom, text: msg, sender: username });
-      document.getElementById("msg").value = "";
-    }
-
-    function exitRoom() {
-      socket.emit("leave", { room: currentRoom, user: username });
-      document.getElementById("chat").style.display = "none";
-      alert("You exited the room");
-    }
-
-    function showFlowerRain() {
-      const emojis = ["🌸", "🌺", "🌼", "🌷", "🌹", "💐"];
-      for (let i = 0; i < 30; i++) {
-        const flower = document.createElement("div");
-        flower.className = "flower";
-        flower.innerText = emojis[Math.floor(Math.random() * emojis.length)];
-        flower.style.left = Math.random() * 100 + "vw";
-        flower.style.fontSize = Math.random() * 20 + 20 + "px";
-        flower.style.animationDuration = 2 + Math.random() * 2 + "s";
-        document.body.appendChild(flower);
-        setTimeout(() => flower.remove(), 4000);
+      if (msg.trim()) {
+        socket.emit("message", { room: currentRoom, text: msg, sender: "you" });
+        document.getElementById("msg").value = "";
       }
     }
 
-    socket.on("partner_joined", (data) => {
-      const flowerOptions = ["🌸", "🌺", "🌼", "🌷", "🌹", "💐"];
-      const flower = flowerOptions[Math.floor(Math.random() * flowerOptions.length)];
-      document.getElementById("flowerEmoji").innerText = flower;
-      document.getElementById("flowerBox").style.display = "block";
+    function exitRoom() {
+      socket.emit("leave");
+      location.reload();
+    }
+
+    function acceptFlower() {
+      document.getElementById("acceptBtn").style.display = "none";
+      createFlowerRain();
+    }
+
+    socket.on("partner_joined", () => {
+      const note = document.createElement("div");
+      note.innerText = "👤 Someone joined the notebook!";
+      document.getElementById("messages").appendChild(note);
     });
 
-    socket.on("participants", list => {
-      document.getElementById("participants").innerText = `Participants: ${list.length}`;
+    socket.on("partner_left", () => {
+      const note = document.createElement("div");
+      note.innerText = "❌ Your partner left the notebook.";
+      document.getElementById("messages").appendChild(note);
     });
 
-    socket.on("message", data => {
-      const msgClass = data.sender === username ? "📝 You" : "💬 Them";
-      document.getElementById("messages").innerHTML += `<div><b>${msgClass}:</b> ${data.text}</div>`;
+    socket.on("message", ({ text, sender }) => {
+      const msg = document.createElement("div");
+      msg.className = sender === "you" ? "you" : "them";
+      msg.innerText = `${sender === "you" ? "You" : "Them"}: ${text}`;
+      document.getElementById("messages").appendChild(msg);
     });
 
-    socket.on("left", (user) => {
-      document.getElementById("messages").innerHTML += `<div style='color:red;'>❌ ${user} left the room.</div>`;
+    socket.on("participants", (count) => {
+      document.getElementById("participants").innerText = `Participants: ${count}`;
     });
+
+    socket.on("flower", (flower) => {
+      document.getElementById("flowerPopup").innerText = flower;
+      document.getElementById("acceptBtn").style.display = "inline-block";
+    });
+
+    function createFlowerRain() {
+      for (let i = 0; i < 20; i++) {
+        const fl = document.createElement("div");
+        fl.className = "flowerRain";
+        fl.innerText = "🌸🌼🌺";
+        fl.style.left = Math.random() * 100 + "vw";
+        fl.style.animationDelay = Math.random() * 2 + "s";
+        document.body.appendChild(fl);
+        setTimeout(() => document.body.removeChild(fl), 4000);
+      }
+    }
   </script>
 </body>
 </html>
