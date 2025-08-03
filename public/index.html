@@ -22,7 +22,11 @@
       font-weight: bold;
       position: absolute;
       top: 80px;
-      animation: fadeDown 1s ease-out;
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 4px solid white;
+      width: 0;
+      animation: typing 2s steps(10, end) forwards, blink 0.7s step-end infinite;
     }
 
     .container {
@@ -49,7 +53,7 @@
     input[type="password"]:focus {
       border-color: #46178f;
       outline: none;
-      box-shadow: 0 0 5px rgba(70, 23, 143, 0.3);
+      box-shadow: 0 0 10px rgba(70, 23, 143, 0.5);
     }
 
     button {
@@ -62,25 +66,15 @@
       border-radius: 6px;
       cursor: pointer;
       transition: transform 0.2s ease, background-color 0.3s ease;
+      animation: pulse 1.5s ease infinite alternate;
     }
 
     button:hover {
       background-color: #333;
-      transform: scale(1.02);
+      transform: scale(1.05);
     }
 
-    /* Animations */
-    @keyframes fadeDown {
-      from {
-        opacity: 0;
-        transform: translateY(-40px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
+    /* Keyframe Animations */
     @keyframes popUp {
       from {
         opacity: 0;
@@ -90,6 +84,20 @@
         opacity: 1;
         transform: scale(1);
       }
+    }
+
+    @keyframes typing {
+      from { width: 0; }
+      to { width: 100%; }
+    }
+
+    @keyframes blink {
+      50% { border-color: transparent; }
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.03); }
     }
   </style>
 </head>
@@ -103,11 +111,23 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    let currentRoom = "";
+
+    function getOrSetUserID() {
+      let userID = localStorage.getItem("userID");
+      if (!userID) {
+        userID = Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("userID", userID);
+      }
+      return userID;
+    }
 
     function joinRoom() {
-      currentRoom = document.getElementById("pin").value;
-      socket.emit("join", currentRoom);
+      const currentRoom = document.getElementById("pin").value.trim();
+      if (!currentRoom) return;
+
+      const userID = getOrSetUserID();
+      socket.emit("join", { room: currentRoom, userID });
+
       window.location.href = `/room.html?room=${encodeURIComponent(currentRoom)}`;
     }
   </script>
