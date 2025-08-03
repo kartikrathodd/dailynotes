@@ -1,1 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notes Room</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
 
+    header {
+      background-color: #46178f;
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h2 {
+      margin: 0;
+    }
+
+    #participants {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    .msg {
+      margin: 10px 0;
+      padding: 8px 12px;
+      background: #e0e0e0;
+      border-radius: 5px;
+      max-width: 80%;
+    }
+
+    .system-msg {
+      font-style: italic;
+      color: #888;
+      font-size: 14px;
+    }
+
+    #inputArea {
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    #sendBtn {
+      background: #46178f;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #sendBtn:hover {
+      background: #38126a;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2 id="roomTitle">Room</h2>
+    <span id="participants">Participants: 1</span>
+  </header>
+
+  <div id="chat">
+    <div id="messages"></div>
+    <div id="inputArea">
+      <input id="msg" placeholder="Write your note..."/>
+      <button id="sendBtn" onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get("room");
+    let userCount = 1;
+
+    document.getElementById("roomTitle").innerText = `Room: ${room}`;
+    socket.emit("join", room);
+
+    socket.on("message", msg => {
+      const el = document.createElement("div");
+      el.className = "msg";
+      el.innerText = msg;
+      document.getElementById("messages").appendChild(el);
+      scrollToBottom();
+    });
+
+    socket.on("system", msg => {
+      const el = document.createElement("div");
+      el.className = "system-msg";
+      el.innerText = msg;
+      document.getElementById("messages").appendChild(el);
+      scrollToBottom();
+    });
+
+    socket.on("user_count", count => {
+      userCount = count;
+      document.getElementById("participants").innerText = `Participants: ${count}`;
+    });
+
+    function sendMsg() {
+      const msg = document.getElementById("msg").value;
+      if (!msg.trim()) return;
+      socket.emit("message", { room, text: msg });
+      document.getElementById("msg").value = "";
+    }
+
+    function scrollToBottom() {
+      const messagesDiv = document.getElementById("messages");
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    window.addEventListener("beforeunload", () => {
+      socket.emit("leave", room);
+    });
+  </script>
+</body>
+</html>
