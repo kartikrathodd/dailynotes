@@ -1,24 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Daily Notes</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notes</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #chat { margin-top: 20px; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; }
-    input { margin-top: 10px; padding: 5px; }
+    body {
+      margin: 0;
+      font-family: 'Arial', sans-serif;
+      background-color: #46178f;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      background-color: white;
+      padding: 40px 30px;
+      border-radius: 10px;
+      text-align: center;
+      width: 300px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: white;
+      font-size: 48px;
+      font-weight: bold;
+      position: absolute;
+      top: 80px;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin: 15px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: black;
+      color: white;
+      padding: 12px;
+      width: 100%;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #333;
+    }
   </style>
 </head>
 <body>
-  <h2>Daily Notes</h2>
-  <input type="password" id="pin" placeholder="Enter Notebook PIN">
-  <button onclick="joinRoom()">Open</button>
-
-  <div id="chat" style="display:none;">
-    <p id="status" style="color: green;"></p>
-    <div id="messages"></div>
-    <input id="msg" placeholder="Write your note...">
-    <button onclick="sendMsg()">Save</button>
+  <h1>Notes</h1>
+  <div class="container">
+    <input type="password" id="pin" placeholder="Room PIN">
+    <button onclick="joinRoom()">Enter</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -27,24 +70,10 @@
     let currentRoom = "";
 
     function joinRoom() {
-      currentRoom = document.getElementById('pin').value;
+      currentRoom = document.getElementById("pin").value;
       socket.emit("join", currentRoom);
-      document.getElementById("chat").style.display = "block";
+      window.location.href = `/room.html?room=${encodeURIComponent(currentRoom)}`;
     }
-
-    function sendMsg() {
-      const msg = document.getElementById("msg").value;
-      socket.emit("message", { room: currentRoom, text: msg });
-      document.getElementById("msg").value = "";
-    }
-
-    socket.on("partner_joined", () => {
-      document.getElementById("status").innerText = "📗 Someone joined this notebook.";
-    });
-
-    socket.on("message", msg => {
-      document.getElementById("messages").innerHTML += `<div>${msg}</div>`;
-    });
   </script>
 </body>
 </html>
