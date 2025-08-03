@@ -1,53 +1,61 @@
-// ======= server.js =======
 const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
+const path = require("path");
 
 const PORT = process.env.PORT || 3000;
+
+// Serve static files (e.g., HTML, CSS, JS)
 app.use(express.static("public"));
 
-const rooms = {};
+// Send index or entry page
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
-io.on("connection", (socket) => {
-  socket.on("join", (room) => {
+// Track rooms and their users
+const roomUsers = {};
+
+io.on("connection", socket => {
+  let currentRoom = "";
+  let currentUser = "";
+
+  socket.on("join", ({ room, userID }) => {
+    currentRoom = room;
+    currentUser = userID;
     socket.join(room);
-    socket.room = room;
 
-    if (!rooms[room]) rooms[room] = [];
-    rooms[room].push(socket.id);
+    if (!roomUsers[room]) roomUsers[room] = new Set();
+    roomUsers[room].add(userID);
 
-    io.to(room).emit("participants", rooms[room].length);
-    socket.to(room).emit("partner_joined");
+    io.to(room).emit("system", `🟢 A user joined the room`);
+    io.to(room).emit("user_count", roomUsers[room].size);
   });
 
   socket.on("message", ({ room, text, sender }) => {
     io.to(room).emit("message", { text, sender });
   });
 
-  socket.on("exit", () => {
-    const room = socket.room;
-    if (!room) return;
-    socket.leave(room);
-
-    if (rooms[room]) {
-      rooms[room] = rooms[room].filter((id) => id !== socket.id);
-      io.to(room).emit("participants", rooms[room].length);
-      socket.to(room).emit("partner_left");
-      if (rooms[room].length === 0) delete rooms[room];
+  socket.on("leave", ({ room, userID }) => {
+    if (roomUsers[room]) {
+      roomUsers[room].delete(userID);
+      if (roomUsers[room].size === 0) delete roomUsers[room];
+      else io.to(room).emit("user_count", roomUsers[room].size);
     }
+    io.to(room).emit("system", `🔴 A user left the room`);
   });
 
   socket.on("disconnect", () => {
-    const room = socket.room;
-    if (!room) return;
-    if (rooms[room]) {
-      rooms[room] = rooms[room].filter((id) => id !== socket.id);
-      io.to(room).emit("participants", rooms[room].length);
-      socket.to(room).emit("partner_left");
-      if (rooms[room].length === 0) delete rooms[room];
+    if (currentRoom && currentUser && roomUsers[currentRoom]) {
+      roomUsers[currentRoom].delete(currentUser);
+      if (roomUsers[currentRoom].size === 0) delete roomUsers[currentRoom];
+      else io.to(currentRoom).emit("user_count", roomUsers[currentRoom].size);
+      io.to(currentRoom).emit("system", `🔴 A user disconnected`);
     }
   });
 });
 
-http.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+http.listen(PORT, () => {
+  console.log(`✅ Server running at http://localhost:${PORT}`);
+});
