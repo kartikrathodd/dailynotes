@@ -1,50 +1,80 @@
 const express = require("express");
+const http = require("http");
+const path = require("path");
+const socketIO = require("socket.io");
+const axios = require("axios");
+
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const server = http.createServer(app);
+const io = socketIO(server);
 
-const rooms = {};
+const rooms = {}; // { roomCode: Set(socket.id) }
 
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  let joinedRoom = null;
 
-  socket.on("join", (room) => {
-    socket.join(room);
-    if (!rooms[room]) rooms[room] = [];
-    if (!rooms[room].includes(socket.id)) rooms[room].push(socket.id);
+  socket.on("join", (roomCode) => {
+    joinedRoom = roomCode;
+    socket.join(roomCode);
 
-    socket.to(room).emit("status", "🔔 Someone joined the room.");
-    io.to(room).emit("participants", rooms[room].length);
+    if (!rooms[roomCode]) {
+      rooms[roomCode] = new Set();
+    }
+
+    rooms[roomCode].add(socket.id);
+
+    // Send participant count
+    io.to(roomCode).emit("participants", rooms[roomCode].size);
+
+    // Notify others
+    socket.to(roomCode).emit("partner_joined");
+
+    // Notify YOU via ntfy (if first user)
+    if (rooms[roomCode].size === 1) {
+      axios.post("https://ntfy.sh/dailynotes-alert", {
+        topic: "dailynotes-alert",
+        message: `Someone joined room ${roomCode}.`,
+      }).catch(err => console.error("ntfy error:", err.message));
+    }
+
+    // Send flower
+    socket.emit("flower", getRandomFlower());
   });
 
-  socket.on("message", ({ room, text }) => {
-    socket.to(room).emit("message", { text, from: "them" });
-    socket.emit("message", { text, from: "you" });
+  socket.on("message", ({ room, text, sender }) => {
+    socket.to(room).emit("message", { text, sender: "them" });
+    socket.emit("message", { text, sender: "you" });
   });
 
-  socket.on("leave", (room) => {
-    socket.leave(room);
-    if (rooms[room]) {
-      rooms[room] = rooms[room].filter(id => id !== socket.id);
-      socket.to(room).emit("status", "🚪 Someone left the room.");
-      io.to(room).emit("participants", rooms[room].length);
+  socket.on("leave", () => {
+    if (joinedRoom && rooms[joinedRoom]) {
+      rooms[joinedRoom].delete(socket.id);
+      io.to(joinedRoom).emit("participants", rooms[joinedRoom].size);
+      io.to(joinedRoom).emit("partner_left");
+      socket.leave(joinedRoom);
     }
   });
 
-  socket.on("disconnecting", () => {
-    const joinedRooms = Array.from(socket.rooms).filter(r => r !== socket.id);
-    joinedRooms.forEach((room) => {
-      if (rooms[room]) {
-        rooms[room] = rooms[room].filter(id => id !== socket.id);
-        socket.to(room).emit("status", "🚪 Someone left the room.");
-        io.to(room).emit("participants", rooms[room].length);
-      }
-    });
+  socket.on("disconnect", () => {
+    if (joinedRoom && rooms[joinedRoom]) {
+      rooms[joinedRoom].delete(socket.id);
+      io.to(joinedRoom).emit("participants", rooms[joinedRoom].size);
+      io.to(joinedRoom).emit("partner_left");
+    }
   });
 });
 
-http.listen(process.env.PORT || 3000, () => {
-  console.log("Server is running");
-});
+function getRandomFlower() {
+  const flowers = ["🌸", "🌺", "🌼", "🌷", "🌹", "💐"];
+  const picked = flowers[Math.floor(Math.random() * flowers.length)];
+  return picked;
+}
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
