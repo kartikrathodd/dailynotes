@@ -8,20 +8,12 @@
     body {
       margin: 0;
       font-family: 'Arial', sans-serif;
-      background-color: #46178f;
+      background: linear-gradient(135deg, #5a189a, #240046);
       height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
-    }
-
-    .container {
-      background-color: white;
-      padding: 40px 30px;
-      border-radius: 10px;
-      text-align: center;
-      width: 300px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
     }
 
     h1 {
@@ -30,6 +22,18 @@
       font-weight: bold;
       position: absolute;
       top: 80px;
+      animation: fadeDown 1s ease-out;
+    }
+
+    .container {
+      background-color: white;
+      padding: 40px 30px;
+      border-radius: 15px;
+      text-align: center;
+      width: 320px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+      transform: scale(0.95);
+      animation: popUp 0.8s ease forwards;
     }
 
     input[type="password"] {
@@ -39,6 +43,13 @@
       margin: 15px 0;
       border-radius: 6px;
       border: 1px solid #ccc;
+      transition: all 0.3s ease;
+    }
+
+    input[type="password"]:focus {
+      border-color: #46178f;
+      outline: none;
+      box-shadow: 0 0 5px rgba(70, 23, 143, 0.3);
     }
 
     button {
@@ -50,10 +61,35 @@
       border: none;
       border-radius: 6px;
       cursor: pointer;
+      transition: transform 0.2s ease, background-color 0.3s ease;
     }
 
     button:hover {
       background-color: #333;
+      transform: scale(1.02);
+    }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from {
+        opacity: 0;
+        transform: translateY(-40px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes popUp {
+      from {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
     }
   </style>
 </head>
