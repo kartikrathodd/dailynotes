@@ -1,79 +1,134 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Notes</title>
+  <title>Daily Notes</title>
   <style>
     body {
-      margin: 0;
-      font-family: 'Arial', sans-serif;
-      background-color: #46178f;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-
-    .container {
-      background-color: white;
-      padding: 40px 30px;
-      border-radius: 10px;
-      text-align: center;
-      width: 300px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    #chat {
+      margin-top: 20px;
+      display: none;
     }
-
-    h1 {
-      color: white;
-      font-size: 48px;
-      font-weight: bold;
-      position: absolute;
-      top: 80px;
-    }
-
-    input[type="password"] {
-      width: 100%;
-      padding: 12px;
-      font-size: 16px;
-      margin: 15px 0;
-      border-radius: 6px;
+    #messages {
       border: 1px solid #ccc;
+      padding: 10px;
+      height: 200px;
+      overflow-y: scroll;
     }
-
+    input {
+      margin-top: 10px;
+      padding: 5px;
+    }
+    .flower-box {
+      border: 2px dashed #ffc0cb;
+      padding: 20px;
+      background-color: #fff0f5;
+      margin-top: 20px;
+    }
+    .flower-box p {
+      font-size: 24px;
+    }
     button {
-      background-color: black;
-      color: white;
-      padding: 12px;
-      width: 100%;
-      font-size: 16px;
-      border: none;
-      border-radius: 6px;
+      padding: 6px 12px;
+      margin-top: 10px;
       cursor: pointer;
     }
-
-    button:hover {
-      background-color: #333;
+    @keyframes flowerFall {
+      0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+    }
+    .flower {
+      position: fixed;
+      top: -50px;
+      font-size: 30px;
+      animation: flowerFall 4s linear forwards;
+      pointer-events: none;
     }
   </style>
 </head>
 <body>
-  <h1>Notes</h1>
-  <div class="container">
-    <input type="password" id="pin" placeholder="Room PIN">
-    <button onclick="joinRoom()">Enter</button>
+  <h2>Daily Notes</h2>
+  <input type="password" id="pin" placeholder="Enter Room PIN">
+  <button onclick="joinRoom()">Open</button>
+
+  <div id="flowerBox" class="flower-box" style="display:none;">
+    <p id="flowerEmoji"></p>
+    <button onclick="acceptFlower()">Accept (from your boy)</button>
+  </div>
+
+  <div id="chat">
+    <p id="status" style="color: green;"></p>
+    <p id="participants"></p>
+    <div id="messages"></div>
+    <input id="msg" placeholder="Write your note...">
+    <button onclick="sendMsg()">Send</button>
+    <button onclick="exitRoom()">Exit</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let currentRoom = "";
+    let username = Math.random().toString(36).substring(7); // random ID for user
 
     function joinRoom() {
-      currentRoom = document.getElementById("pin").value;
-      socket.emit("join", currentRoom);
-      window.location.href = `/room.html?room=${encodeURIComponent(currentRoom)}`;
+      currentRoom = document.getElementById('pin').value;
+      socket.emit("join", { room: currentRoom, user: username });
     }
+
+    function acceptFlower() {
+      document.getElementById("flowerBox").style.display = "none";
+      document.getElementById("chat").style.display = "block";
+      showFlowerRain();
+    }
+
+    function sendMsg() {
+      const msg = document.getElementById("msg").value;
+      socket.emit("message", { room: currentRoom, text: msg, sender: username });
+      document.getElementById("msg").value = "";
+    }
+
+    function exitRoom() {
+      socket.emit("leave", { room: currentRoom, user: username });
+      document.getElementById("chat").style.display = "none";
+      alert("You exited the room");
+    }
+
+    function showFlowerRain() {
+      const emojis = ["🌸", "🌺", "🌼", "🌷", "🌹", "💐"];
+      for (let i = 0; i < 30; i++) {
+        const flower = document.createElement("div");
+        flower.className = "flower";
+        flower.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+        flower.style.left = Math.random() * 100 + "vw";
+        flower.style.fontSize = Math.random() * 20 + 20 + "px";
+        flower.style.animationDuration = 2 + Math.random() * 2 + "s";
+        document.body.appendChild(flower);
+        setTimeout(() => flower.remove(), 4000);
+      }
+    }
+
+    socket.on("partner_joined", (data) => {
+      const flowerOptions = ["🌸", "🌺", "🌼", "🌷", "🌹", "💐"];
+      const flower = flowerOptions[Math.floor(Math.random() * flowerOptions.length)];
+      document.getElementById("flowerEmoji").innerText = flower;
+      document.getElementById("flowerBox").style.display = "block";
+    });
+
+    socket.on("participants", list => {
+      document.getElementById("participants").innerText = `Participants: ${list.length}`;
+    });
+
+    socket.on("message", data => {
+      const msgClass = data.sender === username ? "📝 You" : "💬 Them";
+      document.getElementById("messages").innerHTML += `<div><b>${msgClass}:</b> ${data.text}</div>`;
+    });
+
+    socket.on("left", (user) => {
+      document.getElementById("messages").innerHTML += `<div style='color:red;'>❌ ${user} left the room.</div>`;
+    });
   </script>
 </body>
 </html>
