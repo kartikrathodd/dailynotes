@@ -3,7 +3,12 @@ const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
 
-app.use(express.static("public")); // Serve static files
+app.use(express.static("public")); // Serve static files like notes.html
+
+// Redirect root to /notes.html
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/notes.html");
+});
 
 const roomUsers = {};
 
