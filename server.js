@@ -3,19 +3,29 @@ const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
 const path = require("path");
+const fetch = require("node-fetch"); // 🔔 for ntfy notifications
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files (e.g., HTML, CSS, JS)
+// Serve static files
 app.use(express.static("public"));
 
-// Send index or entry page
+// Entry page
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Track rooms and their users
+// Room tracking
 const roomUsers = {};
+
+// 🔔 Helper to send notifications
+function sendNtfy(message) {
+  fetch("https://ntfy.sh/dailynotes0327", {
+    method: "POST",
+    body: message,
+    headers: { "Content-Type": "text/plain" }
+  }).catch((err) => console.error("ntfy error:", err));
+}
 
 io.on("connection", socket => {
   let currentRoom = "";
@@ -29,8 +39,10 @@ io.on("connection", socket => {
     if (!roomUsers[room]) roomUsers[room] = new Set();
     roomUsers[room].add(userID);
 
-    io.to(room).emit("system", `🟢 A user joined the room`);
+    const msg = `🟢 User joined room ${room}`;
+    io.to(room).emit("system", msg);
     io.to(room).emit("user_count", roomUsers[room].size);
+    sendNtfy(msg); // 🔔
   });
 
   socket.on("message", ({ room, text, sender }) => {
@@ -43,7 +55,9 @@ io.on("connection", socket => {
       if (roomUsers[room].size === 0) delete roomUsers[room];
       else io.to(room).emit("user_count", roomUsers[room].size);
     }
-    io.to(room).emit("system", `🔴 A user left the room`);
+    const msg = `🔴 User left room ${room}`;
+    io.to(room).emit("system", msg);
+    sendNtfy(msg); // 🔔
   });
 
   socket.on("disconnect", () => {
@@ -51,7 +65,10 @@ io.on("connection", socket => {
       roomUsers[currentRoom].delete(currentUser);
       if (roomUsers[currentRoom].size === 0) delete roomUsers[currentRoom];
       else io.to(currentRoom).emit("user_count", roomUsers[currentRoom].size);
-      io.to(currentRoom).emit("system", `🔴 A user disconnected`);
+
+      const msg = `🔴 User disconnected from room ${currentRoom}`;
+      io.to(currentRoom).emit("system", msg);
+      sendNtfy(msg); // 🔔
     }
   });
 });
