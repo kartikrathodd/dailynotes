@@ -79,7 +79,7 @@
       border: 1px solid #ccc;
     }
 
-    #sendBtn {
+    #sendBtn, #exitBtn {
       background: #46178f;
       color: white;
       border: none;
@@ -89,7 +89,7 @@
       cursor: pointer;
     }
 
-    #sendBtn:hover {
+    #sendBtn:hover, #exitBtn:hover {
       background: #38126a;
     }
   </style>
@@ -105,6 +105,7 @@
     <div id="inputArea">
       <input id="msg" placeholder="Write your note..."/>
       <button id="sendBtn" onclick="sendMsg()">Send</button>
+      <button id="exitBtn" onclick="exitRoom()">Exit</button>
     </div>
   </div>
 
@@ -114,6 +115,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const room = urlParams.get("room");
     let userID = localStorage.getItem("userID");
+
     if (!userID) {
       userID = Math.random().toString(36).substr(2, 9);
       localStorage.setItem("userID", userID);
@@ -152,6 +154,11 @@
     function scrollToBottom() {
       const messages = document.getElementById("messages");
       messages.scrollTop = messages.scrollHeight;
+    }
+
+    function exitRoom() {
+      socket.emit("leave", { room, userID });
+      window.location.href = "/";
     }
 
     window.addEventListener("beforeunload", () => {
