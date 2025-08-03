@@ -2,60 +2,49 @@ const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
-const path = require("path");
 
-const PORT = process.env.PORT || 3000;
+const rooms = {};
 
-// Serve static files (e.g., HTML, CSS, JS)
 app.use(express.static("public"));
 
-// Send index or entry page
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+io.on("connection", (socket) => {
+  console.log("A user connected");
 
-// Track rooms and their users
-const roomUsers = {};
-
-io.on("connection", socket => {
-  let currentRoom = "";
-  let currentUser = "";
-
-  socket.on("join", ({ room, userID }) => {
-    currentRoom = room;
-    currentUser = userID;
+  socket.on("join", (room) => {
     socket.join(room);
+    if (!rooms[room]) rooms[room] = [];
+    if (!rooms[room].includes(socket.id)) rooms[room].push(socket.id);
 
-    if (!roomUsers[room]) roomUsers[room] = new Set();
-    roomUsers[room].add(userID);
-
-    io.to(room).emit("system", `🟢 A user joined the room`);
-    io.to(room).emit("user_count", roomUsers[room].size);
+    socket.to(room).emit("status", "🔔 Someone joined the room.");
+    io.to(room).emit("participants", rooms[room].length);
   });
 
-  socket.on("message", ({ room, text, sender }) => {
-    io.to(room).emit("message", { text, sender });
+  socket.on("message", ({ room, text }) => {
+    socket.to(room).emit("message", { text, from: "them" });
+    socket.emit("message", { text, from: "you" });
   });
 
-  socket.on("leave", ({ room, userID }) => {
-    if (roomUsers[room]) {
-      roomUsers[room].delete(userID);
-      if (roomUsers[room].size === 0) delete roomUsers[room];
-      else io.to(room).emit("user_count", roomUsers[room].size);
+  socket.on("leave", (room) => {
+    socket.leave(room);
+    if (rooms[room]) {
+      rooms[room] = rooms[room].filter(id => id !== socket.id);
+      socket.to(room).emit("status", "🚪 Someone left the room.");
+      io.to(room).emit("participants", rooms[room].length);
     }
-    io.to(room).emit("system", `🔴 A user left the room`);
   });
 
-  socket.on("disconnect", () => {
-    if (currentRoom && currentUser && roomUsers[currentRoom]) {
-      roomUsers[currentRoom].delete(currentUser);
-      if (roomUsers[currentRoom].size === 0) delete roomUsers[currentRoom];
-      else io.to(currentRoom).emit("user_count", roomUsers[currentRoom].size);
-      io.to(currentRoom).emit("system", `🔴 A user disconnected`);
-    }
+  socket.on("disconnecting", () => {
+    const joinedRooms = Array.from(socket.rooms).filter(r => r !== socket.id);
+    joinedRooms.forEach((room) => {
+      if (rooms[room]) {
+        rooms[room] = rooms[room].filter(id => id !== socket.id);
+        socket.to(room).emit("status", "🚪 Someone left the room.");
+        io.to(room).emit("participants", rooms[room].length);
+      }
+    });
   });
 });
 
-http.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+http.listen(process.env.PORT || 3000, () => {
+  console.log("Server is running");
 });
