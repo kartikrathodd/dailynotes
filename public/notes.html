@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Daily Notes</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #chat { margin-top: 20px; }
+    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; }
+    input { margin-top: 10px; padding: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Daily Notes</h2>
+  <input type="password" id="pin" placeholder="Enter Notebook PIN">
+  <button onclick="joinRoom()">Open</button>
+
+  <div id="chat" style="display:none;">
+    <p id="status" style="color: green;"></p>
+    <div id="messages"></div>
+    <input id="msg" placeholder="Write your note...">
+    <button onclick="sendMsg()">Save</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentRoom = "";
+
+    function joinRoom() {
+      currentRoom = document.getElementById('pin').value;
+      socket.emit("join", currentRoom);
+      document.getElementById("chat").style.display = "block";
+    }
+
+    function sendMsg() {
+      const msg = document.getElementById("msg").value;
+      socket.emit("message", { room: currentRoom, text: msg });
+      document.getElementById("msg").value = "";
+    }
+
+    socket.on("partner_joined", () => {
+      document.getElementById("status").innerText = "📗 Someone joined this notebook.";
+    });
+
+    socket.on("message", msg => {
+      document.getElementById("messages").innerHTML += `<div>${msg}</div>`;
+    });
+  </script>
+</body>
+</html>
