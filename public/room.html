@@ -1,72 +1,161 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Daily Notes - Room</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notes Room</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
-    #chat { margin-top: 20px; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; text-align: left; }
-    .me { color: blue; }
-    .them { color: green; }
-    .system { color: gray; font-style: italic; }
-    #participants { margin-top: 10px; font-weight: bold; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #46178f;
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    .msg {
+      margin: 10px 0;
+      padding: 10px 15px;
+      border-radius: 6px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .you {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .them {
+      background: #eee;
+      align-self: flex-start;
+    }
+
+    .system-msg {
+      font-style: italic;
+      color: #777;
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    #inputArea {
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    #sendBtn {
+      background: #46178f;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #sendBtn:hover {
+      background: #38126a;
+    }
   </style>
 </head>
 <body>
-  <h2>📓 Daily Notes - Room</h2>
-  <div id="participants"></div>
-  <div id="messages"></div>
+  <header>
+    <h2 id="roomTitle">Room</h2>
+    <span id="participants">Participants: 1</span>
+  </header>
 
-  <input id="msg" placeholder="Write your note..." />
-  <button onclick="sendMsg()">Send</button>
-
-  <br><br>
-  <button onclick="exitRoom()" style="color: white; background-color: red; padding: 6px 12px; border: none; border-radius: 4px;">Exit Room</button>
+  <div id="chat">
+    <div id="messages"></div>
+    <div id="inputArea">
+      <input id="msg" placeholder="Write your note..."/>
+      <button id="sendBtn" onclick="sendMsg()">Send</button>
+    </div>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    const room = new URLSearchParams(window.location.search).get("room");
-    const userID = Date.now() + "-" + Math.floor(Math.random() * 10000);
-    document.getElementById("participants").innerText = "Joining...";
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get("room");
+    let userID = localStorage.getItem("userID");
+    if (!userID) {
+      userID = Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("userID", userID);
+    }
 
+    document.getElementById("roomTitle").innerText = `Room: ${room}`;
     socket.emit("join", { room, userID });
 
+    socket.on("message", ({ text, sender }) => {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg " + (sender === userID ? "you" : "them");
+      msgDiv.innerText = text;
+      document.getElementById("messages").appendChild(msgDiv);
+      scrollToBottom();
+    });
+
+    socket.on("system", msg => {
+      const el = document.createElement("div");
+      el.className = "system-msg";
+      el.innerText = msg;
+      document.getElementById("messages").appendChild(el);
+      scrollToBottom();
+    });
+
+    socket.on("user_count", count => {
+      document.getElementById("participants").innerText = `Participants: ${count}`;
+    });
+
     function sendMsg() {
-      const msg = document.getElementById("msg").value;
+      const msg = document.getElementById("msg").value.trim();
       if (!msg) return;
-      socket.emit("message", { room, text: msg, sender: "you" });
-      addMessage(msg, true);
+      socket.emit("message", { room, text: msg, sender: userID });
       document.getElementById("msg").value = "";
     }
 
-    function exitRoom() {
+    function scrollToBottom() {
+      const messages = document.getElementById("messages");
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    window.addEventListener("beforeunload", () => {
       socket.emit("leave", { room, userID });
-      socket.disconnect();
-      alert("You left the room.");
-      window.location.href = "/";  // Redirect to home
-    }
-
-    function addMessage(msg, isMe) {
-      const div = document.createElement("div");
-      div.className = isMe ? "me" : "them";
-      div.innerText = isMe ? `You: ${msg}` : `Them: ${msg}`;
-      document.getElementById("messages").appendChild(div);
-    }
-
-    socket.on("message", (data) => {
-      if (data.sender !== "you") addMessage(data.text, false);
-    });
-
-    socket.on("system", (msg) => {
-      const div = document.createElement("div");
-      div.className = "system";
-      div.innerText = msg;
-      document.getElementById("messages").appendChild(div);
-    });
-
-    socket.on("user_count", (count) => {
-      document.getElementById("participants").innerText = `Participants: ${count}`;
     });
   </script>
 </body>
