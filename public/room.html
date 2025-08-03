@@ -1,103 +1,162 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Daily Notes - Room</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notes Room</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #f7f7f7; }
-    .container { max-width: 600px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    #status { color: green; margin-bottom: 10px; }
-    #participants { font-size: 14px; color: #666; margin-bottom: 10px; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 250px; overflow-y: auto; background: #fafafa; margin-bottom: 10px; }
-    .msg { padding: 5px 10px; margin: 5px 0; border-radius: 5px; }
-    .you { background: #d1e7dd; text-align: right; }
-    .them { background: #f8d7da; text-align: left; }
-    input, button { padding: 10px; border: none; border-radius: 5px; }
-    button { background: #007bff; color: white; cursor: pointer; margin-left: 5px; }
-    #flowerContainer { text-align: center; margin-bottom: 10px; }
-    #flowerImage { height: 60px; }
-    .flower-rain img { position: absolute; animation: drop 4s linear; z-index: 999; }
-    @keyframes drop {
-      0% { top: -50px; }
-      100% { top: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f9f9f9;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background-color: #46178f;
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    #messages {
+      flex: 1;
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+    }
+
+    .msg {
+      margin: 10px 0;
+      padding: 10px 15px;
+      border-radius: 6px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+
+    .you {
+      background: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .them {
+      background: #eee;
+      align-self: flex-start;
+    }
+
+    .system-msg {
+      font-style: italic;
+      color: #777;
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    #inputArea {
+      display: flex;
+      gap: 10px;
+    }
+
+    #msg {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    #sendBtn {
+      background: #46178f;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #sendBtn:hover {
+      background: #38126a;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div id="status"></div>
-    <div id="participants"></div>
-    <div id="flowerContainer"></div>
+  <header>
+    <h2 id="roomTitle">Room</h2>
+    <span id="participants">Participants: 1</span>
+  </header>
+
+  <div id="chat">
     <div id="messages"></div>
-    <input id="msg" placeholder="Write your message...">
-    <button onclick="sendMsg()">Send</button>
-    <button onclick="leaveRoom()">Exit</button>
+    <div id="inputArea">
+      <input id="msg" placeholder="Write your note..."/>
+      <button id="sendBtn" onclick="sendMsg()">Send</button>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    const room = new URLSearchParams(window.location.search).get("room");
-    document.title = `Room ${room}`;
-    socket.emit("join", room);
+    const urlParams = new URLSearchParams(window.location.search);
+    const room = urlParams.get("room");
+    let userID = localStorage.getItem("userID");
+    if (!userID) {
+      userID = Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("userID", userID);
+    }
+
+    document.getElementById("roomTitle").innerText = `Room: ${room}`;
+    socket.emit("join", { room, userID });
+
+    socket.on("message", ({ text, sender }) => {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg " + (sender === userID ? "you" : "them");
+      msgDiv.innerText = text;
+      document.getElementById("messages").appendChild(msgDiv);
+      scrollToBottom();
+    });
+
+    socket.on("system", msg => {
+      const el = document.createElement("div");
+      el.className = "system-msg";
+      el.innerText = msg;
+      document.getElementById("messages").appendChild(el);
+      scrollToBottom();
+    });
+
+    socket.on("user_count", count => {
+      document.getElementById("participants").innerText = `Participants: ${count}`;
+    });
 
     function sendMsg() {
-      const msg = document.getElementById("msg").value;
-      socket.emit("message", { room, text: msg });
+      const msg = document.getElementById("msg").value.trim();
+      if (!msg) return;
+      socket.emit("message", { room, text: msg, sender: userID });
       document.getElementById("msg").value = "";
     }
 
-    function leaveRoom() {
-      socket.emit("leave");
-      window.location.href = "/";
+    function scrollToBottom() {
+      const messages = document.getElementById("messages");
+      messages.scrollTop = messages.scrollHeight;
     }
 
-    socket.on("participants", count => {
-      document.getElementById("participants").innerText = `${count} participant${count !== 1 ? 's' : ''}`;
+    window.addEventListener("beforeunload", () => {
+      socket.emit("leave", { room, userID });
     });
-
-    socket.on("partner_joined", () => {
-      document.getElementById("status").innerText = "🎉 Someone joined the room!";
-    });
-
-    socket.on("partner_left", () => {
-      document.getElementById("status").innerText = "❌ Someone left the room.";
-    });
-
-    socket.on("message", data => {
-      const div = document.createElement("div");
-      div.className = `msg ${data.sender}`;
-      div.innerText = data.text;
-      document.getElementById("messages").appendChild(div);
-    });
-
-    socket.on("flower", flower => {
-      const flowerContainer = document.getElementById("flowerContainer");
-      flowerContainer.innerHTML = `
-        <div>
-          <img id="flowerImage" src="https://em-content.zobj.net/source/apple/354/${flower}.png" alt="${flower}"><br>
-          <button onclick="acceptFlower()">Accept (from your boy)</button>
-        </div>`;
-    });
-
-    function acceptFlower() {
-      const rainContainer = document.createElement("div");
-      rainContainer.classList.add("flower-rain");
-      document.body.appendChild(rainContainer);
-
-      for (let i = 0; i < 30; i++) {
-        const img = document.createElement("img");
-        img.src = "https://em-content.zobj.net/source/apple/354/cherry-blossom.png";
-        img.style.left = `${Math.random() * 100}vw`;
-        img.style.top = `-${Math.random() * 100}px`;
-        img.style.height = "40px";
-        rainContainer.appendChild(img);
-      }
-
-      setTimeout(() => {
-        rainContainer.remove();
-      }, 4000);
-    }
   </script>
 </body>
 </html>
-
