@@ -1,106 +1,85 @@
 const socket = io();
 
-// Join with random name
-const username = "User" + Math.floor(Math.random() * 1000);
-socket.emit("joinRoom", username);
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const messages = document.getElementById("messages");
+const typingDiv = document.getElementById("typing");
+const roomName = document.getElementById("room-name");
+const participantsSpan = document.getElementById("participants");
 
-const msgInput = document.getElementById("msg");
-const sendBtn = document.getElementById("sendBtn");
-const messagesDiv = document.getElementById("messages");
-const participantsList = document.getElementById("participantsList");
-const cameraBtn = document.getElementById("cameraBtn");
-const fileInput = document.getElementById("fileInput");
-const micBtn = document.getElementById("micBtn");
+let myLastMessage = null;
+let typingTimeout;
 
-sendBtn.addEventListener("click", sendMessage);
-msgInput.addEventListener("keypress", (e) => {
-  if (e.key === "Enter") sendMessage();
+// get room number from URL
+const urlParams = new URLSearchParams(window.location.search);
+const room = urlParams.get("room") || "default";
+roomName.innerText = "Room: " + room;
+
+// join room
+socket.emit("joinRoom", room);
+
+form.addEventListener("submit", function(e) {
+  e.preventDefault();
+  if (input.value) {
+    const msg = { text: input.value, sender: socket.id, room: room };
+    socket.emit("chat message", msg);
+    myLastMessage = addMessage(msg, "sent");
+    input.value = "";
+  }
 });
 
-function sendMessage() {
-  const msg = msgInput.value;
-  if (msg.trim() !== "") {
-    socket.emit("chatMessage", msg);
-    msgInput.value = "";
+// Listen for messages
+socket.on("chat message", function(msg) {
+  if (msg.sender !== socket.id) {
+    addMessage(msg, "received");
+    socket.emit("seen", { room, sender: msg.sender });
   }
+});
+
+// Add message
+function addMessage(msg, type) {
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("message", type);
+  wrapper.innerText = msg.text;
+
+  if (type === "sent") {
+    const stat = document.createElement("div");
+    stat.classList.add("status");
+    stat.innerText = "Delivered";
+    wrapper.appendChild(stat);
+  }
+
+  messages.appendChild(wrapper);
+  messages.scrollTop = messages.scrollHeight;
+  return wrapper;
 }
 
-socket.on("message", (msg) => {
-  const div = document.createElement("div");
-  div.classList.add("message");
-  div.classList.add(msg.user === username ? "sent" : "received");
-
-  if (msg.type === "text") {
-    div.innerText = msg.text;
-  } else if (msg.type === "image") {
-    const img = document.createElement("img");
-    img.src = msg.text;
-    div.appendChild(img);
-  } else if (msg.type === "audio") {
-    const audio = document.createElement("audio");
-    audio.controls = true;
-    audio.src = msg.text;
-    div.appendChild(audio);
+// Seen event
+socket.on("seen", function() {
+  if (myLastMessage) {
+    const stat = myLastMessage.querySelector(".status");
+    if (stat) stat.innerText = "Seen";
   }
-
-  messagesDiv.appendChild(div);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-socket.on("participants", (list) => {
-  participantsList.innerHTML = "";
-  list.forEach((user) => {
-    const li = document.createElement("li");
-    li.innerText = user;
-    participantsList.appendChild(li);
-  });
+// Typing event
+input.addEventListener("input", () => {
+  socket.emit("typing", room);
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    socket.emit("stopTyping", room);
+  }, 1000);
 });
 
-// Handle image upload
-cameraBtn.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const res = await fetch("/upload", { method: "POST", body: formData });
-  const data = await res.json();
-
-  socket.emit("imageMessage", data.filePath);
+socket.on("typing", () => {
+  typingDiv.innerText = "User is typing...";
 });
 
-// Voice recording
-let mediaRecorder;
-let audioChunks = [];
+socket.on("stopTyping", () => {
+  typingDiv.innerText = "";
+});
 
-micBtn.addEventListener("click", async () => {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunks.push(event.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(audioChunks, { type: "audio/webm" });
-      audioChunks = [];
-
-      const formData = new FormData();
-      formData.append("file", blob, "voiceNote.webm");
-
-      const res = await fetch("/upload", { method: "POST", body: formData });
-      const data = await res.json();
-
-      socket.emit("voiceMessage", data.filePath);
-    };
-
-    mediaRecorder.start();
-    micBtn.innerText = "⏹";
-  } else {
-    mediaRecorder.stop();
-    micBtn.innerText = "🎤";
-  }
+// Update participants
+socket.on("participants", (count) => {
+  participantsSpan.innerText = count;
 });
