@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const rooms = {};
 
 // Replace this with your ntfy topic URL
-const NTFY_TOPIC_URL = "https://ntfy.sh/your-topic";
+const NTFY_TOPIC_URL = "https://ntfy.sh/dailynotes0327";
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
