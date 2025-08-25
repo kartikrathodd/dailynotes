@@ -8,40 +8,39 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files (your client)
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, "public")));
 
-// Storage setup for uploads
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Configure Multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/"); // save in uploads folder
+    cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    cb(null, Date.now() + path.extname(file.originalname));
   },
 });
 
 const upload = multer({ storage });
 
-// Routes for photo upload
+// --- Upload Routes ---
+
+// Upload Photo
 app.post("/upload/photo", upload.single("photo"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No photo uploaded" });
   res.json({ file: `/uploads/${req.file.filename}` });
 });
 
-// Routes for voice upload
+// Upload Voice Note
 app.post("/upload/voice", upload.single("voice"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No voice uploaded" });
   res.json({ file: `/uploads/${req.file.filename}` });
 });
 
-// Expose uploads folder publicly
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Socket.io chat handling
+// --- Socket.IO Events ---
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  console.log("A user connected");
 
   socket.on("chat message", (msg) => {
     io.emit("chat message", msg);
@@ -56,10 +55,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("user disconnected");
+    console.log("A user disconnected");
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
