@@ -1,19 +1,25 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Chat Room</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="chat-container">
-      <ul id="messages"></ul>
-      <div id="typing"></div>
-      <form id="chat-form">
-        <input id="msg" autocomplete="off" placeholder="Type a message..." />
-        <button>➤</button>
-      </form>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>iMessage Clone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="chat-container">
+    <div id="top-bar">
+      <span id="room-name"></span>
+      <span id="participants">0</span>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="client.js"></script>
-  </body>
+    <div id="messages"></div>
+    <div id="typing"></div>
+    <form id="form" action="">
+      <input id="input" autocomplete="off" placeholder="iMessage..." />
+      <button>➤</button>
+    </form>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
 </html>
