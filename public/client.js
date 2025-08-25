@@ -1,128 +1,106 @@
 const socket = io();
 
-// Elements
-const messageForm = document.getElementById("message-form");
-const messageInput = document.getElementById("message-input");
-const messagesContainer = document.getElementById("messages");
-const userListContainer = document.getElementById("user-list");
-const imageInput = document.getElementById("image-input");
-const imageButton = document.getElementById("image-button");
-const recordButton = document.getElementById("record-button");
+// Join with random name
+const username = "User" + Math.floor(Math.random() * 1000);
+socket.emit("joinRoom", username);
 
-let mediaRecorder;
-let audioChunks = [];
-let username = prompt("Enter your name:") || "Guest";
+const msgInput = document.getElementById("msg");
+const sendBtn = document.getElementById("sendBtn");
+const messagesDiv = document.getElementById("messages");
+const participantsList = document.getElementById("participantsList");
+const cameraBtn = document.getElementById("cameraBtn");
+const fileInput = document.getElementById("fileInput");
+const micBtn = document.getElementById("micBtn");
 
-socket.emit("join", username);
+sendBtn.addEventListener("click", sendMessage);
+msgInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") sendMessage();
+});
 
-// Add message to chat
-function appendMessage(message, type, isOwn) {
-  const msgDiv = document.createElement("div");
-  msgDiv.classList.add("message", type, isOwn ? "own" : "other");
-  msgDiv.innerHTML = message;
-  messagesContainer.appendChild(msgDiv);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+function sendMessage() {
+  const msg = msgInput.value;
+  if (msg.trim() !== "") {
+    socket.emit("chatMessage", msg);
+    msgInput.value = "";
+  }
 }
 
-// Text messages
-messageForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const message = messageInput.value.trim();
-  if (message) {
-    socket.emit("chatMessage", { username, message });
-    appendMessage(`<b>${username}:</b> ${message}`, "text", true);
-    messageInput.value = "";
+socket.on("message", (msg) => {
+  const div = document.createElement("div");
+  div.classList.add("message");
+  div.classList.add(msg.user === username ? "sent" : "received");
+
+  if (msg.type === "text") {
+    div.innerText = msg.text;
+  } else if (msg.type === "image") {
+    const img = document.createElement("img");
+    img.src = msg.text;
+    div.appendChild(img);
+  } else if (msg.type === "audio") {
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.src = msg.text;
+    div.appendChild(audio);
   }
+
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
-socket.on("chatMessage", (data) => {
-  if (data.username !== username) {
-    appendMessage(`<b>${data.username}:</b> ${data.message}`, "text", false);
-  }
-});
-
-// Image messages
-imageButton.addEventListener("click", () => imageInput.click());
-
-imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (file) {
-    const formData = new FormData();
-    formData.append("image", file);
-
-    fetch("/upload", { method: "POST", body: formData })
-      .then((res) => res.json())
-      .then((data) => {
-        socket.emit("imageMessage", { username, image: data.filePath });
-        appendMessage(
-          `<b>${username}:</b> <img src="${data.filePath}" class="chat-image">`,
-          "image",
-          true
-        );
-      });
-  }
-});
-
-socket.on("imageMessage", (data) => {
-  if (data.username !== username) {
-    appendMessage(
-      `<b>${data.username}:</b> <img src="${data.image}" class="chat-image">`,
-      "image",
-      false
-    );
-  }
-});
-
-// Voice messages
-recordButton.addEventListener("mousedown", () => {
-  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.start();
-    audioChunks = [];
-
-    mediaRecorder.addEventListener("dataavailable", (event) => {
-      audioChunks.push(event.data);
-    });
-
-    mediaRecorder.addEventListener("stop", () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      const formData = new FormData();
-      formData.append("voice", audioBlob, "voice.webm");
-
-      fetch("/voice", { method: "POST", body: formData })
-        .then((res) => res.json())
-        .then((data) => {
-          socket.emit("voiceMessage", { username, voice: data.filePath });
-          appendMessage(
-            `<b>${username}:</b> <audio controls src="${data.filePath}"></audio>`,
-            "voice",
-            true
-          );
-        });
-    });
-  });
-});
-
-recordButton.addEventListener("mouseup", () => {
-  if (mediaRecorder) mediaRecorder.stop();
-});
-
-socket.on("voiceMessage", (data) => {
-  if (data.username !== username) {
-    appendMessage(
-      `<b>${data.username}:</b> <audio controls src="${data.voice}"></audio>`,
-      "voice",
-      false
-    );
-  }
-});
-
-// User list
-socket.on("userList", (users) => {
-  userListContainer.innerHTML = "";
-  users.forEach((u) => {
+socket.on("participants", (list) => {
+  participantsList.innerHTML = "";
+  list.forEach((user) => {
     const li = document.createElement("li");
-    li.textContent = u;
-    userListContainer.appendChild(li);
+    li.innerText = user;
+    participantsList.appendChild(li);
   });
+});
+
+// Handle image upload
+cameraBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/upload", { method: "POST", body: formData });
+  const data = await res.json();
+
+  socket.emit("imageMessage", data.filePath);
+});
+
+// Voice recording
+let mediaRecorder;
+let audioChunks = [];
+
+micBtn.addEventListener("click", async () => {
+  if (!mediaRecorder || mediaRecorder.state === "inactive") {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (event) => {
+      audioChunks.push(event.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      audioChunks = [];
+
+      const formData = new FormData();
+      formData.append("file", blob, "voiceNote.webm");
+
+      const res = await fetch("/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      socket.emit("voiceMessage", data.filePath);
+    };
+
+    mediaRecorder.start();
+    micBtn.innerText = "⏹";
+  } else {
+    mediaRecorder.stop();
+    micBtn.innerText = "🎤";
+  }
 });
