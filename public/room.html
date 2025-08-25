@@ -13,15 +13,18 @@
       <span id="participants">0</span>
     </div>
 
-    <!-- Input form above messages -->
+    <div id="messages"></div>
+
+    <!-- Input form -->
     <form id="form" action="">
       <input id="input" autocomplete="off" placeholder="iMessage..." />
       <button>➤</button>
     </form>
 
-    <div id="messages"></div>
+    <!-- Typing indicator below input -->
     <div id="typing"></div>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
