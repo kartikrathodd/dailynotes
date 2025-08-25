@@ -1,66 +1,69 @@
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
+const socketIo = require("socket.io");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server);
 
-// Serve static files from public folder
-app.use(express.static(path.join(__dirname, "public")));
+const PORT = process.env.PORT || 3000;
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve static files
+app.use(express.static("public"));
 
-// Configure Multer storage
+// Multer storage for uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    cb(null, "update/");
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
-
 const upload = multer({ storage });
 
-// --- Upload Routes ---
-
-// Upload Photo
-app.post("/upload/photo", upload.single("photo"), (req, res) => {
-  res.json({ file: `/uploads/${req.file.filename}` });
+// Image upload route
+app.post("/upload", upload.single("image"), (req, res) => {
+  res.json({ filePath: `/update/${req.file.filename}` });
 });
 
-// Upload Voice Note
-app.post("/upload/voice", upload.single("voice"), (req, res) => {
-  res.json({ file: `/uploads/${req.file.filename}` });
+// Voice upload route
+app.post("/voice", upload.single("voice"), (req, res) => {
+  res.json({ filePath: `/update/${req.file.filename}` });
 });
 
-// --- Socket.IO Events ---
+// Serve uploaded files
+app.use("/update", express.static("update"));
+
+let users = {};
+
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  console.log("New user connected");
 
-  socket.on("chat message", (msg) => {
-    io.emit("chat message", msg);
+  socket.on("join", (username) => {
+    users[socket.id] = username;
+    io.emit("userList", Object.values(users));
   });
 
-  socket.on("photo", (fileUrl) => {
-    io.emit("photo", fileUrl);
+  socket.on("chatMessage", (data) => {
+    io.emit("chatMessage", data);
   });
 
-  socket.on("voice note", (fileUrl) => {
-    io.emit("voice note", fileUrl);
+  socket.on("imageMessage", (data) => {
+    io.emit("imageMessage", data);
+  });
+
+  socket.on("voiceMessage", (data) => {
+    io.emit("voiceMessage", data);
   });
 
   socket.on("disconnect", () => {
-    console.log("A user disconnected");
+    delete users[socket.id];
+    io.emit("userList", Object.values(users));
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
