@@ -1,37 +1,14 @@
-/* ---------- Extra styles for photo & voice buttons ---------- */
-#photoBtn, #voiceBtn {
-  margin-left: 6px;
-  padding: 10px;
-  border: none;
-  border-radius: 50%;
-  background: #e5e5ea;   /* neutral gray */
-  color: black;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-#photoBtn:hover, #voiceBtn:hover {
-  background: #d6d6d6;
-}
-
-/* Keep send button distinct */
-#form button[type="submit"],
-#form button:not(#photoBtn):not(#voiceBtn) {
-  background: #007aff;   /* blue for send */
+.replay-btn {
+  margin-left: 10px;
+  padding: 4px 8px;
+  background: #007bff;
   color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
-/* Images in chat messages */
-.message img {
-  display: block;
-  max-width: 200px;
-  border-radius: 10px;
-  margin-top: 5px;
-}
-
-/* Audio in chat messages */
-.message audio {
-  display: block;
-  margin-top: 5px;
-  max-width: 250px;
+.replay-btn:hover {
+  background: #0056b3;
 }
