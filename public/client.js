@@ -1,90 +1,55 @@
-const socket = io();
-const form = document.getElementById("form");
-const input = document.getElementById("input");
-const messages = document.getElementById("messages");
+body {
+  font-family: sans-serif;
+  display: flex;
+  background: #f2f2f7;
+  margin: 0;
+  height: 100vh;
+}
 
-// Send text messages
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (input.value) {
-    socket.emit("chat message", input.value);
-    input.value = "";
-  }
-});
+#chat-container {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #ddd;
+}
 
-// Receive text messages
-socket.on("chat message", (msg) => {
-  const item = document.createElement("li");
-  item.textContent = msg;
-  messages.appendChild(item);
-});
+#participants-container {
+  flex: 1;
+  background: #fff;
+  padding: 10px;
+  overflow-y: auto;
+}
 
-// Handle photo upload
-const photoInput = document.getElementById("photoInput");
-photoInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+#participants-container h3 {
+  margin-top: 0;
+}
 
-  const formData = new FormData();
-  formData.append("photo", file);
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
 
-  const res = await fetch("/upload/photo", { method: "POST", body: formData });
-  const data = await res.json();
+.bubble {
+  background: #007aff;
+  color: white;
+  padding: 10px;
+  border-radius: 18px;
+  margin: 8px 0;
+  max-width: 60%;
+  word-wrap: break-word;
+  position: relative;
+}
 
-  socket.emit("photo", data.file);
-});
+.bubble .meta {
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.7;
+}
 
-// Receive photo
-socket.on("photo", (fileUrl) => {
-  const item = document.createElement("li");
-  const img = document.createElement("img");
-  img.src = fileUrl;
-  img.width = 200;
-  item.appendChild(img);
-  messages.appendChild(item);
-});
-
-// Voice Recording
-let mediaRecorder;
-let audioChunks = [];
-const recordBtn = document.getElementById("recordBtn");
-
-recordBtn.addEventListener("click", async () => {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.start();
-    recordBtn.textContent = "⏹ Stop";
-
-    mediaRecorder.ondataavailable = (e) => {
-      audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      audioChunks = [];
-
-      const formData = new FormData();
-      formData.append("voice", audioBlob, "voiceNote.webm");
-
-      const res = await fetch("/upload/voice", { method: "POST", body: formData });
-      const data = await res.json();
-
-      socket.emit("voice note", data.file);
-      recordBtn.textContent = "🎤 Record";
-    };
-  } else {
-    mediaRecorder.stop();
-  }
-});
-
-// Receive voice note
-socket.on("voice note", (fileUrl) => {
-  const item = document.createElement("li");
-  const audio = document.createElement("audio");
-  audio.src = fileUrl;
-  audio.controls = true;
-  item.appendChild(audio);
-  messages.appendChild(item);
-});
+.bubble:nth-child(even) {
+  background: #e5e5ea;
+  color: black;
+  margin-left: auto;
+}
