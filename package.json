@@ -1,18 +1,13 @@
 {
-  "name": "chat-app",
+  "name": "imessage-clone",
   "version": "1.0.0",
-  "description": "Realtime chat with text, photo, and voice messages",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.7.5"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
   }
 }
