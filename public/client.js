@@ -1,150 +1,128 @@
 const socket = io();
-const form = document.getElementById("form");
-const input = document.getElementById("input");
-const messages = document.getElementById("messages");
-const participantsList = document.getElementById("participants");
 
-// Get username for this session
-let username = prompt("Enter your name:") || "Anonymous";
+// Elements
+const messageForm = document.getElementById("message-form");
+const messageInput = document.getElementById("message-input");
+const messagesContainer = document.getElementById("messages");
+const userListContainer = document.getElementById("user-list");
+const imageInput = document.getElementById("image-input");
+const imageButton = document.getElementById("image-button");
+const recordButton = document.getElementById("record-button");
 
-// Send text messages
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (input.value) {
-    const messageData = {
-      user: username,
-      text: input.value,
-      status: "delivered", // default status
-    };
-    socket.emit("chat message", messageData);
-    input.value = "";
-  }
-});
-
-// Receive text messages
-socket.on("chat message", (msg) => {
-  renderMessage(msg);
-});
-
-// Handle photo upload
-const photoInput = document.getElementById("photoInput");
-photoInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append("photo", file);
-
-  const res = await fetch("/upload/photo", { method: "POST", body: formData });
-  const data = await res.json();
-
-  const photoData = {
-    user: username,
-    photo: data.file,
-    status: "delivered",
-  };
-
-  socket.emit("photo", photoData);
-});
-
-// Receive photo
-socket.on("photo", (data) => {
-  renderMessage(data);
-});
-
-// Voice Recording
 let mediaRecorder;
 let audioChunks = [];
-const recordBtn = document.getElementById("recordBtn");
+let username = prompt("Enter your name:") || "Guest";
 
-recordBtn.addEventListener("click", async () => {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
+socket.emit("join", username);
 
-    mediaRecorder.start();
-    recordBtn.textContent = "⏹ Stop";
+// Add message to chat
+function appendMessage(message, type, isOwn) {
+  const msgDiv = document.createElement("div");
+  msgDiv.classList.add("message", type, isOwn ? "own" : "other");
+  msgDiv.innerHTML = message;
+  messagesContainer.appendChild(msgDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
 
-    mediaRecorder.ondataavailable = (e) => {
-      audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      audioChunks = [];
-
-      const formData = new FormData();
-      formData.append("voice", audioBlob, "voiceNote.webm");
-
-      const res = await fetch("/upload/voice", { method: "POST", body: formData });
-      const data = await res.json();
-
-      const voiceData = {
-        user: username,
-        voice: data.file,
-        status: "delivered",
-      };
-
-      socket.emit("voice note", voiceData);
-      recordBtn.textContent = "🎤 Record";
-    };
-  } else {
-    mediaRecorder.stop();
+// Text messages
+messageForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const message = messageInput.value.trim();
+  if (message) {
+    socket.emit("chatMessage", { username, message });
+    appendMessage(`<b>${username}:</b> ${message}`, "text", true);
+    messageInput.value = "";
   }
 });
 
-// Receive voice note
-socket.on("voice note", (data) => {
-  renderMessage(data);
+socket.on("chatMessage", (data) => {
+  if (data.username !== username) {
+    appendMessage(`<b>${data.username}:</b> ${data.message}`, "text", false);
+  }
 });
 
-// Participants list
-socket.emit("join", username);
-socket.on("participants", (users) => {
-  participantsList.innerHTML = "";
-  users.forEach((u) => {
-    const li = document.createElement("li");
-    li.textContent = u;
-    participantsList.appendChild(li);
+// Image messages
+imageButton.addEventListener("click", () => imageInput.click());
+
+imageInput.addEventListener("change", () => {
+  const file = imageInput.files[0];
+  if (file) {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    fetch("/upload", { method: "POST", body: formData })
+      .then((res) => res.json())
+      .then((data) => {
+        socket.emit("imageMessage", { username, image: data.filePath });
+        appendMessage(
+          `<b>${username}:</b> <img src="${data.filePath}" class="chat-image">`,
+          "image",
+          true
+        );
+      });
+  }
+});
+
+socket.on("imageMessage", (data) => {
+  if (data.username !== username) {
+    appendMessage(
+      `<b>${data.username}:</b> <img src="${data.image}" class="chat-image">`,
+      "image",
+      false
+    );
+  }
+});
+
+// Voice messages
+recordButton.addEventListener("mousedown", () => {
+  navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    audioChunks = [];
+
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      audioChunks.push(event.data);
+    });
+
+    mediaRecorder.addEventListener("stop", () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("voice", audioBlob, "voice.webm");
+
+      fetch("/voice", { method: "POST", body: formData })
+        .then((res) => res.json())
+        .then((data) => {
+          socket.emit("voiceMessage", { username, voice: data.filePath });
+          appendMessage(
+            `<b>${username}:</b> <audio controls src="${data.filePath}"></audio>`,
+            "voice",
+            true
+          );
+        });
+    });
   });
 });
 
-// Mark as seen when message enters viewport
-function renderMessage(data) {
-  const item = document.createElement("div");
-  item.classList.add("message");
-  item.classList.add(data.user === username ? "sent" : "received");
+recordButton.addEventListener("mouseup", () => {
+  if (mediaRecorder) mediaRecorder.stop();
+});
 
-  // Text message
-  if (data.text) {
-    const bubble = document.createElement("div");
-    bubble.classList.add("bubble");
-    bubble.textContent = data.text;
-
-    const status = document.createElement("span");
-    status.classList.add("status");
-    status.textContent = data.user === username ? data.status : "";
-    bubble.appendChild(status);
-
-    item.appendChild(bubble);
+socket.on("voiceMessage", (data) => {
+  if (data.username !== username) {
+    appendMessage(
+      `<b>${data.username}:</b> <audio controls src="${data.voice}"></audio>`,
+      "voice",
+      false
+    );
   }
+});
 
-  // Photo
-  if (data.photo) {
-    const img = document.createElement("img");
-    img.src = data.photo;
-    img.classList.add("photo");
-    item.appendChild(img);
-  }
-
-  // Voice
-  if (data.voice) {
-    const audio = document.createElement("audio");
-    audio.src = data.voice;
-    audio.controls = true;
-    item.appendChild(audio);
-  }
-
-  messages.appendChild(item);
-  messages.scrollTop = messages.scrollHeight;
-}
+// User list
+socket.on("userList", (users) => {
+  userListContainer.innerHTML = "";
+  users.forEach((u) => {
+    const li = document.createElement("li");
+    li.textContent = u;
+    userListContainer.appendChild(li);
+  });
+});
