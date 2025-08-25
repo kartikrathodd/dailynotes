@@ -1,82 +1,90 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #e5ddd5;
+  background: #f5f5f7;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
 }
 
-.chat-container {
+#chat-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 450px;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  box-shadow: 0px 0px 10px rgba(0,0,0,0.2);
+  background: white;
+  border-radius: 0;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
 }
 
-.messages {
+#messages {
   flex: 1;
-  overflow-y: auto;
+  list-style: none;
   padding: 10px;
+  margin: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .message {
-  margin: 8px 0;
-  padding: 10px;
-  border-radius: 15px;
+  padding: 10px 15px;
+  border-radius: 20px;
+  margin: 5px 0;
   max-width: 75%;
   word-wrap: break-word;
-  position: relative;
 }
 
-.message.sent {
-  margin-left: auto;
+.sent {
+  align-self: flex-end;
   background: #007aff;
   color: white;
-  border-bottom-right-radius: 0;
 }
 
-.message.received {
-  margin-right: auto;
-  background: #f1f0f0;
+.received {
+  align-self: flex-start;
+  background: #e5e5ea;
   color: black;
-  border-bottom-left-radius: 0;
 }
 
-.message img {
-  max-width: 100%;
-  border-radius: 10px;
+.chat-image {
+  max-width: 200px;
+  border-radius: 12px;
 }
 
-.seen {
-  font-size: 10px;
-  color: #ccc;
-  text-align: right;
-}
-
-.input-container {
+#form {
   display: flex;
   padding: 10px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid #ccc;
 }
 
-.input-container input[type="text"] {
+#input {
   flex: 1;
   padding: 10px;
   border-radius: 20px;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
+  outline: none;
 }
 
-.input-container button {
+button {
   margin-left: 5px;
-  padding: 10px;
   border: none;
-  border-radius: 50%;
   background: #007aff;
   color: white;
+  padding: 10px 15px;
+  border-radius: 50%;
   cursor: pointer;
+}
+
+button:active {
+  background: #005bb5;
+}
+
+.seen {
+  font-size: 12px;
+  color: gray;
+  text-align: right;
+  margin-right: 10px;
 }
