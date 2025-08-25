@@ -1,169 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Notes Room</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #f9f9f9;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    header {
-      background-color: #46178f;
-      color: white;
-      padding: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    #chat {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      overflow: hidden;
-    }
-
-    #messages {
-      flex: 1;
-      background: white;
-      border: 1px solid #ccc;
-      padding: 15px;
-      border-radius: 8px;
-      overflow-y: auto;
-      margin-bottom: 10px;
-    }
-
-    .msg {
-      margin: 10px 0;
-      padding: 10px 15px;
-      border-radius: 6px;
-      max-width: 70%;
-      word-wrap: break-word;
-    }
-
-    .you {
-      background: #dcf8c6;
-      align-self: flex-end;
-    }
-
-    .them {
-      background: #eee;
-      align-self: flex-start;
-    }
-
-    .system-msg {
-      font-style: italic;
-      color: #777;
-      text-align: center;
-      margin: 10px 0;
-    }
-
-    #inputArea {
-      display: flex;
-      gap: 10px;
-    }
-
-    #msg {
-      flex: 1;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-
-    #sendBtn, #exitBtn {
-      background: #46178f;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    #sendBtn:hover, #exitBtn:hover {
-      background: #38126a;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Daily Notes Chat</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h2 id="roomTitle">Room</h2>
-    <span id="participants">Participants: 1</span>
-  </header>
+  <div class="chat-container">
+    <ul id="messages"></ul>
 
-  <div id="chat">
-    <div id="messages"></div>
-    <div id="inputArea">
-      <input id="msg" placeholder="Write your note..."/>
-      <button id="sendBtn" onclick="sendMsg()">Send</button>
-      <button id="exitBtn" onclick="exitRoom()">Exit</button>
+    <form id="form">
+      <input id="input" autocomplete="off" placeholder="Type a message..." />
+      <button>Send</button>
+    </form>
+
+    <div class="controls">
+      <!-- Voice Note -->
+      <button id="recordBtn">🎤 Record</button>
+      <!-- Disappearing Photo -->
+      <input type="file" id="photoInput" accept="image/*" />
     </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const urlParams = new URLSearchParams(window.location.search);
-    const room = urlParams.get("room");
-    let userID = localStorage.getItem("userID");
-
-    if (!userID) {
-      userID = Math.random().toString(36).substr(2, 9);
-      localStorage.setItem("userID", userID);
-    }
-
-    document.getElementById("roomTitle").innerText = `Room: ${room}`;
-    socket.emit("join", { room, userID });
-
-    socket.on("message", ({ text, sender }) => {
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg " + (sender === userID ? "you" : "them");
-      msgDiv.innerText = text;
-      document.getElementById("messages").appendChild(msgDiv);
-      scrollToBottom();
-    });
-
-    socket.on("system", msg => {
-      const el = document.createElement("div");
-      el.className = "system-msg";
-      el.innerText = msg;
-      document.getElementById("messages").appendChild(el);
-      scrollToBottom();
-    });
-
-    socket.on("user_count", count => {
-      document.getElementById("participants").innerText = `Participants: ${count}`;
-    });
-
-    function sendMsg() {
-      const msg = document.getElementById("msg").value.trim();
-      if (!msg) return;
-      socket.emit("message", { room, text: msg, sender: userID });
-      document.getElementById("msg").value = "";
-    }
-
-    function scrollToBottom() {
-      const messages = document.getElementById("messages");
-      messages.scrollTop = messages.scrollHeight;
-    }
-
-    function exitRoom() {
-      socket.emit("leave", { room, userID });
-      window.location.href = "/";
-    }
-
-    window.addEventListener("beforeunload", () => {
-      socket.emit("leave", { room, userID });
-    });
-  </script>
+  <script src="client.js"></script>
 </body>
 </html>
