@@ -1,47 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Chat Room</title>
-  <link rel="stylesheet" href="room.css">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- Top bar -->
-  <div class="chat-header">
-    <div class="room-info">Room #101</div>
-    <div class="participants">👥 3</div>
-  </div>
-
-  <!-- Chat box -->
-  <div class="chat-box" id="chat-box">
-    <div class="message other">
-      <span class="text">Hey, welcome to the room!</span>
-      <span class="time">10:01</span>
+  <div class="chat-container">
+    
+    <!-- Header -->
+    <div class="chat-header">
+      <h2>Room #1234</h2>
+      <div class="participants">5 participants</div>
     </div>
-    <div class="message self">
-      <span class="text">Thanks! Happy to join 🎉</span>
-      <span class="time">10:02</span>
-      <span class="seen">✔ Seen</span>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chatMessages">
+      <div class="message received">
+        Hey! Welcome to the room.
+        <div class="message-status">Seen</div>
+      </div>
+      <div class="message sent">
+        Thanks! Excited to chat 😃
+        <div class="message-status">Delivered</div>
+      </div>
+      <div class="typing" id="typingStatus">Someone is typing...</div>
     </div>
+
+    <!-- Input -->
+    <div class="chat-input">
+      <input type="text" id="messageInput" placeholder="Type a message..." />
+      <button id="sendBtn">➤</button>
+    </div>
+
   </div>
-
-  <!-- Typing indicator -->
-  <div class="typing" id="typing">User is typing...</div>
-
-  <!-- Input -->
-  <div class="chat-input">
-    <input type="text" id="message" placeholder="Type a message..." />
-    <button id="send">➤</button>
-  </div>
-
-  <script>
-    const input = document.getElementById("message");
-    const typing = document.getElementById("typing");
-
-    input.addEventListener("input", () => {
-      typing.style.display = input.value ? "block" : "none";
-    });
-  </script>
 </body>
 </html>
