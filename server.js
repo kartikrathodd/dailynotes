@@ -1,58 +1,50 @@
 const express = require("express");
 const http = require("http");
-const socketIo = require("socket.io");
-const multer = require("multer");
+const { Server } = require("socket.io");
 const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = new Server(server);
 
-app.use(express.static("public"));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(express.static(path.join(__dirname, "public")));
 
-let participants = {};
+const rooms = {};
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
-
-  socket.on("joinRoom", (username) => {
-    participants[socket.id] = username;
-    io.emit("participants", Object.values(participants));
+  socket.on("joinRoom", (room) => {
+    socket.join(room);
+    if (!rooms[room]) rooms[room] = new Set();
+    rooms[room].add(socket.id);
+    io.to(room).emit("participants", rooms[room].size);
   });
 
-  socket.on("chatMessage", (msg) => {
-    io.emit("message", { user: participants[socket.id], text: msg, type: "text" });
+  socket.on("chat message", (msg) => {
+    io.to(msg.room).emit("chat message", msg);
   });
 
-  socket.on("imageMessage", (filePath) => {
-    io.emit("message", { user: participants[socket.id], text: filePath, type: "image" });
+  socket.on("seen", (data) => {
+    io.to(data.room).emit("seen");
   });
 
-  socket.on("voiceMessage", (filePath) => {
-    io.emit("message", { user: participants[socket.id], text: filePath, type: "audio" });
+  socket.on("typing", (room) => {
+    socket.to(room).emit("typing");
   });
 
-  socket.on("disconnect", () => {
-    delete participants[socket.id];
-    io.emit("participants", Object.values(participants));
+  socket.on("stopTyping", (room) => {
+    socket.to(room).emit("stopTyping");
+  });
+
+  socket.on("disconnecting", () => {
+    for (let room of socket.rooms) {
+      if (rooms[room]) {
+        rooms[room].delete(socket.id);
+        io.to(room).emit("participants", rooms[room].size);
+      }
+    }
   });
 });
 
-// Multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
+server.listen(3000, () => {
+  console.log("Server running on port 3000");
 });
-const upload = multer({ storage });
-
-app.post("/upload", upload.single("file"), (req, res) => {
-  res.json({ filePath: `/uploads/${req.file.filename}` });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
