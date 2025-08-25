@@ -3,67 +3,56 @@ const http = require("http");
 const socketIo = require("socket.io");
 const multer = require("multer");
 const path = require("path");
-const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-const PORT = process.env.PORT || 3000;
-
-// Serve static files
 app.use(express.static("public"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Multer storage for uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "update/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-const upload = multer({ storage });
-
-// Image upload route
-app.post("/upload", upload.single("image"), (req, res) => {
-  res.json({ filePath: `/update/${req.file.filename}` });
-});
-
-// Voice upload route
-app.post("/voice", upload.single("voice"), (req, res) => {
-  res.json({ filePath: `/update/${req.file.filename}` });
-});
-
-// Serve uploaded files
-app.use("/update", express.static("update"));
-
-let users = {};
+let participants = {};
 
 io.on("connection", (socket) => {
-  console.log("New user connected");
+  console.log("User connected:", socket.id);
 
-  socket.on("join", (username) => {
-    users[socket.id] = username;
-    io.emit("userList", Object.values(users));
+  socket.on("joinRoom", (username) => {
+    participants[socket.id] = username;
+    io.emit("participants", Object.values(participants));
   });
 
-  socket.on("chatMessage", (data) => {
-    io.emit("chatMessage", data);
+  socket.on("chatMessage", (msg) => {
+    io.emit("message", { user: participants[socket.id], text: msg, type: "text" });
   });
 
-  socket.on("imageMessage", (data) => {
-    io.emit("imageMessage", data);
+  socket.on("imageMessage", (filePath) => {
+    io.emit("message", { user: participants[socket.id], text: filePath, type: "image" });
   });
 
-  socket.on("voiceMessage", (data) => {
-    io.emit("voiceMessage", data);
+  socket.on("voiceMessage", (filePath) => {
+    io.emit("message", { user: participants[socket.id], text: filePath, type: "audio" });
   });
 
   socket.on("disconnect", () => {
-    delete users[socket.id];
-    io.emit("userList", Object.values(users));
+    delete participants[socket.id];
+    io.emit("participants", Object.values(participants));
   });
 });
 
+// Multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
+app.post("/upload", upload.single("file"), (req, res) => {
+  res.json({ filePath: `/uploads/${req.file.filename}` });
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
