@@ -2,80 +2,65 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const multer = require("multer");
-const fs = require("fs");
 const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public"));
+// Serve static files (your client)
+app.use(express.static(path.join(__dirname, "public")));
 
-// File upload config (for photos & voice notes)
+// Storage setup for uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    cb(null, "uploads/"); // save in uploads folder
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
 });
-const upload = multer({ storage: storage });
 
-// Routes for uploading photos/voice (NO auto delete now)
+const upload = multer({ storage });
+
+// Routes for photo upload
 app.post("/upload/photo", upload.single("photo"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No photo uploaded" });
   res.json({ file: `/uploads/${req.file.filename}` });
 });
 
+// Routes for voice upload
 app.post("/upload/voice", upload.single("voice"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No voice uploaded" });
   res.json({ file: `/uploads/${req.file.filename}` });
 });
 
-// Serve uploaded files
+// Expose uploads folder publicly
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ================= SOCKET.IO =====================
-let users = {}; // store connected users { socket.id : username }
-
+// Socket.io chat handling
 io.on("connection", (socket) => {
-  console.log("a user connected:", socket.id);
+  console.log("a user connected");
 
-  // User joins chat
-  socket.on("join", (username) => {
-    users[socket.id] = username;
-    io.emit("participants", Object.values(users)); // send updated user list
+  socket.on("chat message", (msg) => {
+    io.emit("chat message", msg);
   });
 
-  // Chat message
-  socket.on("chat message", (data) => {
-    // data = { text, sender }
-    io.emit("chat message", { ...data, status: "delivered" });
-  });
-
-  // Seen event
-  socket.on("seen", (msgId) => {
-    io.emit("seen", msgId); // broadcast seen update
-  });
-
-  // Voice note
-  socket.on("voice note", (fileUrl) => {
-    io.emit("voice note", { fileUrl, status: "delivered" });
-  });
-
-  // Photo
   socket.on("photo", (fileUrl) => {
-    io.emit("photo", { fileUrl, status: "delivered" });
+    io.emit("photo", fileUrl);
   });
 
-  // Disconnect
+  socket.on("voice note", (fileUrl) => {
+    io.emit("voice note", fileUrl);
+  });
+
   socket.on("disconnect", () => {
-    console.log("user disconnected:", socket.id);
-    delete users[socket.id];
-    io.emit("participants", Object.values(users));
+    console.log("user disconnected");
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
