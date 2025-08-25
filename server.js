@@ -1,51 +1,53 @@
 const express = require("express");
 const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
-const multer = require("multer");
+const http = require("http");
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(server);
 const path = require("path");
+const multer = require("multer");
 
-app.use(express.static("public"));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(express.static(path.join(__dirname, "public")));
 
-// File upload (images/audio)
+// File upload storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
 
-// Upload route
-app.post("/upload", upload.single("file"), (req, res) => {
+// Route for uploading images
+app.post("/upload", upload.single("image"), (req, res) => {
   res.json({ filePath: "/uploads/" + req.file.filename });
 });
 
-// Store connected users
-let users = {};
+// Serve uploads folder
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-io.on("connection", socket => {
-  console.log("User connected:", socket.id);
+io.on("connection", (socket) => {
+  console.log("a user connected");
 
-  socket.on("join", username => {
-    users[socket.id] = username;
-    io.emit("userList", Object.values(users));
+  socket.on("chat message", (msg) => {
+    io.emit("chat message", { id: socket.id, text: msg });
   });
 
-  // Handle chat messages
-  socket.on("chatMessage", msg => {
-    io.emit("chatMessage", { ...msg, id: socket.id, time: new Date() });
+  socket.on("image message", (filePath) => {
+    io.emit("image message", { id: socket.id, filePath });
   });
 
-  // Handle seen
-  socket.on("messageSeen", msgId => {
-    io.emit("messageSeen", { msgId, seenBy: users[socket.id] });
+  socket.on("voice message", (audioUrl) => {
+    io.emit("voice message", { id: socket.id, audioUrl });
+  });
+
+  socket.on("seen", () => {
+    io.emit("seen", { id: socket.id });
   });
 
   socket.on("disconnect", () => {
-    delete users[socket.id];
-    io.emit("userList", Object.values(users));
-    console.log("User disconnected:", socket.id);
+    console.log("user disconnected");
   });
 });
 
-http.listen(3000, () => console.log("Server running on http://localhost:3000"));
+server.listen(3000, () => {
+  console.log("listening on *:3000");
+});
