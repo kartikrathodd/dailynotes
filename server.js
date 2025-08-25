@@ -1,50 +1,51 @@
 const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
+const app = express();
+const http = require("http").createServer(app);
+const io = require("socket.io")(http);
+const multer = require("multer");
 const path = require("path");
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+app.use(express.static("public"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-app.use(express.static(path.join(__dirname, "public")));
+// File upload (images/audio)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
+});
+const upload = multer({ storage });
 
-const rooms = {};
+// Upload route
+app.post("/upload", upload.single("file"), (req, res) => {
+  res.json({ filePath: "/uploads/" + req.file.filename });
+});
 
-io.on("connection", (socket) => {
-  socket.on("joinRoom", (room) => {
-    socket.join(room);
-    if (!rooms[room]) rooms[room] = new Set();
-    rooms[room].add(socket.id);
-    io.to(room).emit("participants", rooms[room].size);
+// Store connected users
+let users = {};
+
+io.on("connection", socket => {
+  console.log("User connected:", socket.id);
+
+  socket.on("join", username => {
+    users[socket.id] = username;
+    io.emit("userList", Object.values(users));
   });
 
-  socket.on("chat message", (msg) => {
-    io.to(msg.room).emit("chat message", msg);
+  // Handle chat messages
+  socket.on("chatMessage", msg => {
+    io.emit("chatMessage", { ...msg, id: socket.id, time: new Date() });
   });
 
-  socket.on("seen", (data) => {
-    io.to(data.room).emit("seen");
+  // Handle seen
+  socket.on("messageSeen", msgId => {
+    io.emit("messageSeen", { msgId, seenBy: users[socket.id] });
   });
 
-  socket.on("typing", (room) => {
-    socket.to(room).emit("typing");
-  });
-
-  socket.on("stopTyping", (room) => {
-    socket.to(room).emit("stopTyping");
-  });
-
-  socket.on("disconnecting", () => {
-    for (let room of socket.rooms) {
-      if (rooms[room]) {
-        rooms[room].delete(socket.id);
-        io.to(room).emit("participants", rooms[room].size);
-      }
-    }
+  socket.on("disconnect", () => {
+    delete users[socket.id];
+    io.emit("userList", Object.values(users));
+    console.log("User disconnected:", socket.id);
   });
 });
 
-server.listen(3000, () => {
-  console.log("Server running on port 3000");
-});
+http.listen(3000, () => console.log("Server running on http://localhost:3000"));
