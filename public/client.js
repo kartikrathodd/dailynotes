@@ -1,80 +1,109 @@
+// Existing socket.io connection
 const socket = io();
-const form = document.getElementById("chat-form");
-const input = document.getElementById("msg");
-const messages = document.getElementById("messages");
-const typingDiv = document.getElementById("typing");
 
-let username = "You";
-let typingTimeout;
+// DOM Elements
+const messageInput = document.getElementById("messageInput");
+const sendButton = document.getElementById("sendButton");
+const messagesContainer = document.getElementById("messages");
+const micButton = document.getElementById("micButton");
+const cameraButton = document.getElementById("cameraButton");
 
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (input.value.trim()) {
-    const msg = {
-      id: Date.now(),
-      user: username,
-      text: input.value,
-      type: "text",
-      seen: false,
-    };
-    appendMessage(msg, true);
-    socket.emit("chat message", msg);
-    input.value = "";
-    socket.emit("stop typing", username);
-  }
+// Typing status
+const typingStatus = document.getElementById("typingStatus");
+
+// Handle sending text messages
+sendButton.addEventListener("click", () => {
+    const message = messageInput.value.trim();
+    if (message) {
+        appendMessage(message, "right", false); // Your own msg
+        socket.emit("chat message", message);
+        messageInput.value = "";
+    }
 });
 
-input.addEventListener("input", () => {
-  socket.emit("typing", username);
-  clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(() => {
-    socket.emit("stop typing", username);
-  }, 1000);
+// Typing event
+messageInput.addEventListener("input", () => {
+    socket.emit("typing", messageInput.value.length > 0);
 });
 
+// Listen for messages
 socket.on("chat message", (msg) => {
-  appendMessage(msg, false);
+    appendMessage(msg, "left", false);
 });
 
-socket.on("message sent", (msg) => {
-  markSeen(msg.id);
+// Listen for typing
+socket.on("typing", (isTyping) => {
+    typingStatus.textContent = isTyping ? "User is typing..." : "";
 });
 
-socket.on("message seen", (msgId) => {
-  const el = document.querySelector(`[data-id="${msgId}"] .status`);
-  if (el) el.textContent = "Seen";
-});
+// Add message to UI
+function appendMessage(message, side, isAudio) {
+    const msgDiv = document.createElement("div");
+    msgDiv.classList.add("message", side);
 
-socket.on("typing", (name) => {
-  typingDiv.textContent = `${name} is typing...`;
-});
+    if (isAudio) {
+        // Create audio player
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = message;
 
-socket.on("stop typing", () => {
-  typingDiv.textContent = "";
-});
+        // Create Replay Button
+        const replayBtn = document.createElement("button");
+        replayBtn.textContent = "🔁 Replay";
+        replayBtn.classList.add("replay-btn");
+        replayBtn.onclick = () => {
+            audio.currentTime = 0;
+            audio.play();
+        };
 
-function appendMessage(msg, isOwn) {
-  const item = document.createElement("li");
-  item.classList.add("message", isOwn ? "own" : "other");
-  item.dataset.id = msg.id;
+        msgDiv.appendChild(audio);
+        msgDiv.appendChild(replayBtn);
+    } else {
+        msgDiv.textContent = message;
+    }
 
-  if (msg.type === "text") {
-    item.innerHTML = `<p>${msg.text}</p><span class="status">${isOwn ? "Sent" : ""}</span>`;
-  } else if (msg.type === "file") {
-    item.innerHTML = `<img src="${msg.text}" class="chat-img"/><span class="status">${isOwn ? "Sent" : ""}</span>`;
-  } else if (msg.type === "audio") {
-    item.innerHTML = `<audio controls src="${msg.text}"></audio><span class="status">${isOwn ? "Sent" : ""}</span>`;
-  }
-
-  messages.appendChild(item);
-  messages.scrollTop = messages.scrollHeight;
-
-  if (!isOwn) {
-    socket.emit("message seen", msg.id);
-  }
+    messagesContainer.appendChild(msgDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function markSeen(id) {
-  const el = document.querySelector(`[data-id="${id}"] .status`);
-  if (el) el.textContent = "Seen";
-}
+// 🎤 Voice Recording
+let mediaRecorder;
+let audioChunks = [];
+
+micButton.addEventListener("click", async () => {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            // Send to UI with Replay
+            appendMessage(audioUrl, "right", true);
+
+            // Send to server
+            socket.emit("voice message", audioBlob);
+
+            audioChunks = [];
+        };
+
+        mediaRecorder.start();
+        micButton.textContent = "⏹ Stop";
+    } else {
+        mediaRecorder.stop();
+        micButton.textContent = "🎤 Voice";
+    }
+});
+
+// Receive voice note
+socket.on("voice message", (arrayBuffer) => {
+    const audioBlob = new Blob([arrayBuffer], { type: "audio/webm" });
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    appendMessage(audioUrl, "left", true);
+});
