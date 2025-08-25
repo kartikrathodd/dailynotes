@@ -1,70 +1,50 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const multer = require("multer");
 const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Middleware
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-// Storage for uploaded files
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
+const rooms = {};
 
-const upload = multer({ storage });
-
-// Image upload endpoint
-app.post("/upload", upload.single("image"), (req, res) => {
-  res.json({ filePath: "/uploads/" + req.file.filename });
-});
-
-// Serve uploaded files
-app.use("/uploads", express.static("uploads"));
-
-// Socket.IO
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  socket.on("joinRoom", (room) => {
+    socket.join(room);
+    if (!rooms[room]) rooms[room] = new Set();
+    rooms[room].add(socket.id);
+    io.to(room).emit("participants", rooms[room].size);
+  });
 
-  // Message
   socket.on("chat message", (msg) => {
-    io.emit("chat message", msg);
+    io.to(msg.room).emit("chat message", msg);
   });
 
-  // Image
-  socket.on("chat image", (imgPath) => {
-    io.emit("chat image", imgPath);
+  socket.on("seen", (data) => {
+    io.to(data.room).emit("seen");
   });
 
-  // Audio
-  socket.on("chat audio", (audioPath) => {
-    io.emit("chat audio", audioPath);
+  socket.on("typing", (room) => {
+    socket.to(room).emit("typing");
   });
 
-  // Typing
-  socket.on("typing", (username) => {
-    socket.broadcast.emit("typing", username);
+  socket.on("stopTyping", (room) => {
+    socket.to(room).emit("stopTyping");
   });
 
-  // Seen message
-  socket.on("seen", (msgId) => {
-    io.emit("seen", msgId);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("user disconnected");
+  socket.on("disconnecting", () => {
+    for (let room of socket.rooms) {
+      if (rooms[room]) {
+        rooms[room].delete(socket.id);
+        io.to(room).emit("participants", rooms[room].size);
+      }
+    }
   });
 });
 
 server.listen(3000, () => {
-  console.log("listening on *:3000");
+  console.log("Server running on port 3000");
 });
