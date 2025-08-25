@@ -34,7 +34,8 @@ body, html {
 
 /* Messages */
 #messages {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 15px;
   display: flex;
@@ -83,10 +84,13 @@ body, html {
   padding: 10px;
   border-top: 1px solid #ddd;
   background: #fff;
+  flex-shrink: 0;
+  margin-bottom: 5px; /* lift the input slightly for visibility */
 }
 
 #input {
   flex: 1;
+  min-width: 0;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 20px;
@@ -105,9 +109,10 @@ body, html {
   cursor: pointer;
 }
 
-/* Typing indicator */
+/* Typing indicator below the input box */
 #typing {
   font-size: 13px;
   color: gray;
   padding: 5px 15px;
+  text-align: left;
 }
