@@ -3,37 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Chat Room</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <title>iMessage Clone</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="chat-container">
-    
-    <!-- Header -->
-    <div class="chat-header">
-      <h2>Room #1234</h2>
-      <div class="participants">5 participants</div>
-    </div>
+    <!-- Chat messages -->
+    <div class="chat-box" id="chatBox"></div>
 
-    <!-- Messages -->
-    <div class="chat-messages" id="chatMessages">
-      <div class="message received">
-        Hey! Welcome to the room.
-        <div class="message-status">Seen</div>
-      </div>
-      <div class="message sent">
-        Thanks! Excited to chat 😃
-        <div class="message-status">Delivered</div>
-      </div>
-      <div class="typing" id="typingStatus">Someone is typing...</div>
+    <!-- Participants Sidebar -->
+    <div class="sidebar">
+      <h3>Participants</h3>
+      <ul id="participantsList"></ul>
     </div>
-
-    <!-- Input -->
-    <div class="chat-input">
-      <input type="text" id="messageInput" placeholder="Type a message..." />
-      <button id="sendBtn">➤</button>
-    </div>
-
   </div>
+
+  <!-- Input -->
+  <div class="input-container">
+    <input type="text" id="messageInput" placeholder="iMessage…" autocomplete="off"/>
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const chatBox = document.getElementById("chatBox");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const participantsList = document.getElementById("participantsList");
+
+    let username = prompt("Enter your name:");
+    socket.emit("join", username);
+
+    sendBtn.onclick = () => {
+      if (messageInput.value.trim()) {
+        socket.emit("chatMessage", { text: messageInput.value });
+        messageInput.value = "";
+      }
+    };
+
+    socket.on("chatMessage", (msg) => {
+      const div = document.createElement("div");
+      div.className = msg.sender === username ? "bubble me" : "bubble other";
+      div.innerHTML = `
+        <p>${msg.text}</p>
+        <span class="status">${msg.status}</span>
+      `;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    socket.on("participants", (users) => {
+      participantsList.innerHTML = "";
+      users.forEach(u => {
+        const li = document.createElement("li");
+        li.textContent = u;
+        participantsList.appendChild(li);
+      });
+    });
+
+    socket.on("updateStatus", ({ id, status }) => {
+      const bubbles = document.querySelectorAll(".bubble");
+      const lastBubble = bubbles[bubbles.length - 1];
+      if (lastBubble) {
+        lastBubble.querySelector(".status").textContent = status;
+      }
+    });
+  </script>
 </body>
 </html>
