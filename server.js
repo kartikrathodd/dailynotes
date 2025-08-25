@@ -2,7 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
-const axios = require("axios"); // For sending ntfy notifications
+const axios = require("axios"); // For ntfy notifications
 
 const app = express();
 const server = http.createServer(app);
@@ -26,9 +26,9 @@ io.on("connection", (socket) => {
     io.to(room).emit("participants", rooms[room].size);
 
     // Send ntfy notification when a user joins
-    const message = `A user has joined the room: ${room}`;
-    axios.post(NTFY_TOPIC_URL, message)
-      .then(() => console.log("ntfy notification sent"))
+    const joinMessage = `A user has joined the room: ${room}`;
+    axios.post(NTFY_TOPIC_URL, joinMessage)
+      .then(() => console.log("ntfy join notification sent"))
       .catch(err => console.error("ntfy error:", err));
   });
 
@@ -57,6 +57,12 @@ io.on("connection", (socket) => {
       if (rooms[room]) {
         rooms[room].delete(socket.id);
         io.to(room).emit("participants", rooms[room].size);
+
+        // Send ntfy notification when a user disconnects
+        const leaveMessage = `A user has left the room: ${room}`;
+        axios.post(NTFY_TOPIC_URL, leaveMessage)
+          .then(() => console.log("ntfy leave notification sent"))
+          .catch(err => console.error("ntfy error:", err));
       }
     }
   });
