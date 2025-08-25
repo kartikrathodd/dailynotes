@@ -1,82 +1,75 @@
 const express = require("express");
-const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const http = require("http");
+const { Server } = require("socket.io");
+const multer = require("multer");
+const fs = require("fs");
 const path = require("path");
-const fetch = require("node-fetch");
 
-const PORT = process.env.PORT || 3000;
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
 app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+// File upload config (for photos & voice notes)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
+// Routes for uploading photos/voice
+app.post("/upload/photo", upload.single("photo"), (req, res) => {
+  res.json({ file: `/uploads/${req.file.filename}` });
+
+  // auto-delete after 1 min (disappearing photo)
+  setTimeout(() => {
+    fs.unlink(path.join(__dirname, "uploads", req.file.filename), (err) => {
+      if (err) console.log("Delete error:", err);
+    });
+  }, 60000);
 });
 
-const roomUsers = {};
+app.post("/upload/voice", upload.single("voice"), (req, res) => {
+  res.json({ file: `/uploads/${req.file.filename}` });
 
-function sendNtfy(message) {
-  fetch("https://ntfy.sh/dailynotes0327", {
-    method: "POST",
-    body: message,
-    headers: { "Content-Type": "text/plain" }
-  }).catch((err) => console.error("ntfy error:", err));
-}
+  // auto-delete after 5 min (optional for voice)
+  setTimeout(() => {
+    fs.unlink(path.join(__dirname, "uploads", req.file.filename), (err) => {
+      if (err) console.log("Delete error:", err);
+    });
+  }, 300000);
+});
 
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// WebSockets
 io.on("connection", (socket) => {
-  let currentRoom = "";
-  let currentUser = "";
-  let hasLeft = false;
+  console.log("a user connected");
 
-  socket.on("join", ({ room, userID }) => {
-    if (!room || !userID) return;
-
-    // Prevent duplicate joins
-    if (socket.data.hasJoined) return;
-    socket.data.hasJoined = true;
-
-    currentRoom = room;
-    currentUser = userID;
-    socket.join(room);
-
-    if (!roomUsers[room]) roomUsers[room] = new Set();
-    roomUsers[room].add(userID);
-
-    const msg = `🟢 User ${userID} joined room ${room}`;
-    io.to(room).emit("system", msg);
-    io.to(room).emit("user_count", roomUsers[room].size);
-    sendNtfy(msg); // 🔔
+  socket.on("chat message", (msg) => {
+    io.emit("chat message", msg);
   });
 
-  socket.on("message", ({ room, text, sender }) => {
-    io.to(room).emit("message", { text, sender });
+  socket.on("voice note", (fileUrl) => {
+    io.emit("voice note", fileUrl);
   });
 
-  socket.on("leave", ({ room, userID }) => {
-    if (roomUsers[room]) {
-      roomUsers[room].delete(userID);
-      if (roomUsers[room].size === 0) delete roomUsers[room];
-      else io.to(room).emit("user_count", roomUsers[room].size);
-    }
-    const msg = `🔴 User ${userID} left room ${room}`;
-    io.to(room).emit("system", msg);
-    sendNtfy(msg); // 🔔
-    hasLeft = true;
+  socket.on("photo", (fileUrl) => {
+    io.emit("photo", fileUrl);
   });
 
   socket.on("disconnect", () => {
-    if (!hasLeft && currentRoom && currentUser && roomUsers[currentRoom]) {
-      roomUsers[currentRoom].delete(currentUser);
-      if (roomUsers[currentRoom].size === 0) delete roomUsers[currentRoom];
-      else io.to(currentRoom).emit("user_count", roomUsers[currentRoom].size);
-
-      const msg = `🔴 User ${currentUser} disconnected from room ${currentRoom}`;
-      io.to(currentRoom).emit("system", msg);
-      sendNtfy(msg); // 🔔
-    }
+    console.log("user disconnected");
   });
 });
 
-http.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
