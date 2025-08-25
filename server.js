@@ -22,50 +22,56 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Routes for uploading photos/voice
+// Routes for uploading photos/voice (NO auto delete now)
 app.post("/upload/photo", upload.single("photo"), (req, res) => {
   res.json({ file: `/uploads/${req.file.filename}` });
-
-  // auto-delete after 1 min (disappearing photo)
-  setTimeout(() => {
-    fs.unlink(path.join(__dirname, "uploads", req.file.filename), (err) => {
-      if (err) console.log("Delete error:", err);
-    });
-  }, 60000);
 });
 
 app.post("/upload/voice", upload.single("voice"), (req, res) => {
   res.json({ file: `/uploads/${req.file.filename}` });
-
-  // auto-delete after 5 min (optional for voice)
-  setTimeout(() => {
-    fs.unlink(path.join(__dirname, "uploads", req.file.filename), (err) => {
-      if (err) console.log("Delete error:", err);
-    });
-  }, 300000);
 });
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// WebSockets
+// ================= SOCKET.IO =====================
+let users = {}; // store connected users { socket.id : username }
+
 io.on("connection", (socket) => {
-  console.log("a user connected");
+  console.log("a user connected:", socket.id);
 
-  socket.on("chat message", (msg) => {
-    io.emit("chat message", msg);
+  // User joins chat
+  socket.on("join", (username) => {
+    users[socket.id] = username;
+    io.emit("participants", Object.values(users)); // send updated user list
   });
 
+  // Chat message
+  socket.on("chat message", (data) => {
+    // data = { text, sender }
+    io.emit("chat message", { ...data, status: "delivered" });
+  });
+
+  // Seen event
+  socket.on("seen", (msgId) => {
+    io.emit("seen", msgId); // broadcast seen update
+  });
+
+  // Voice note
   socket.on("voice note", (fileUrl) => {
-    io.emit("voice note", fileUrl);
+    io.emit("voice note", { fileUrl, status: "delivered" });
   });
 
+  // Photo
   socket.on("photo", (fileUrl) => {
-    io.emit("photo", fileUrl);
+    io.emit("photo", { fileUrl, status: "delivered" });
   });
 
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log("user disconnected");
+    console.log("user disconnected:", socket.id);
+    delete users[socket.id];
+    io.emit("participants", Object.values(users));
   });
 });
 
