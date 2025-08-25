@@ -9,6 +9,7 @@ const participantsSpan = document.getElementById("participants");
 
 let myLastMessage = null;
 let typingTimeout;
+const typingUsers = new Set();
 
 // get room number from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -18,6 +19,7 @@ roomName.innerText = "Room: " + room;
 // join room
 socket.emit("joinRoom", room);
 
+// Send message
 form.addEventListener("submit", function(e) {
   e.preventDefault();
   if (input.value) {
@@ -62,22 +64,35 @@ socket.on("seen", function() {
   }
 });
 
-// Typing event
+// Typing logic
 input.addEventListener("input", () => {
   socket.emit("typing", room);
+
   clearTimeout(typingTimeout);
   typingTimeout = setTimeout(() => {
     socket.emit("stopTyping", room);
   }, 1000);
 });
 
-socket.on("typing", () => {
-  typingDiv.innerText = "User is typing...";
+socket.on("typing", (data) => {
+  typingUsers.add(data.id);
+  updateTypingDiv();
 });
 
-socket.on("stopTyping", () => {
-  typingDiv.innerText = "";
+socket.on("stopTyping", (data) => {
+  typingUsers.delete(data.id);
+  updateTypingDiv();
 });
+
+function updateTypingDiv() {
+  if (typingUsers.size === 0) {
+    typingDiv.innerText = "";
+  } else if (typingUsers.size === 1) {
+    typingDiv.innerText = "User is typing...";
+  } else {
+    typingDiv.innerText = "Multiple users are typing...";
+  }
+}
 
 // Update participants
 socket.on("participants", (count) => {
