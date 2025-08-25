@@ -1,109 +1,85 @@
-// Existing socket.io connection
 const socket = io();
 
-// DOM Elements
-const messageInput = document.getElementById("messageInput");
-const sendButton = document.getElementById("sendButton");
-const messagesContainer = document.getElementById("messages");
-const micButton = document.getElementById("micButton");
-const cameraButton = document.getElementById("cameraButton");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+const messages = document.getElementById("messages");
+const typingDiv = document.getElementById("typing");
+const roomName = document.getElementById("room-name");
+const participantsSpan = document.getElementById("participants");
 
-// Typing status
-const typingStatus = document.getElementById("typingStatus");
+let myLastMessage = null;
+let typingTimeout;
 
-// Handle sending text messages
-sendButton.addEventListener("click", () => {
-    const message = messageInput.value.trim();
-    if (message) {
-        appendMessage(message, "right", false); // Your own msg
-        socket.emit("chat message", message);
-        messageInput.value = "";
-    }
-});
+// get room number from URL
+const urlParams = new URLSearchParams(window.location.search);
+const room = urlParams.get("room") || "default";
+roomName.innerText = "Room: " + room;
 
-// Typing event
-messageInput.addEventListener("input", () => {
-    socket.emit("typing", messageInput.value.length > 0);
+// join room
+socket.emit("joinRoom", room);
+
+form.addEventListener("submit", function(e) {
+  e.preventDefault();
+  if (input.value) {
+    const msg = { text: input.value, sender: socket.id, room: room };
+    socket.emit("chat message", msg);
+    myLastMessage = addMessage(msg, "sent");
+    input.value = "";
+  }
 });
 
 // Listen for messages
-socket.on("chat message", (msg) => {
-    appendMessage(msg, "left", false);
+socket.on("chat message", function(msg) {
+  if (msg.sender !== socket.id) {
+    addMessage(msg, "received");
+    socket.emit("seen", { room, sender: msg.sender });
+  }
 });
 
-// Listen for typing
-socket.on("typing", (isTyping) => {
-    typingStatus.textContent = isTyping ? "User is typing..." : "";
-});
+// Add message
+function addMessage(msg, type) {
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("message", type);
+  wrapper.innerText = msg.text;
 
-// Add message to UI
-function appendMessage(message, side, isAudio) {
-    const msgDiv = document.createElement("div");
-    msgDiv.classList.add("message", side);
+  if (type === "sent") {
+    const stat = document.createElement("div");
+    stat.classList.add("status");
+    stat.innerText = "Delivered";
+    wrapper.appendChild(stat);
+  }
 
-    if (isAudio) {
-        // Create audio player
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = message;
-
-        // Create Replay Button
-        const replayBtn = document.createElement("button");
-        replayBtn.textContent = "🔁 Replay";
-        replayBtn.classList.add("replay-btn");
-        replayBtn.onclick = () => {
-            audio.currentTime = 0;
-            audio.play();
-        };
-
-        msgDiv.appendChild(audio);
-        msgDiv.appendChild(replayBtn);
-    } else {
-        msgDiv.textContent = message;
-    }
-
-    messagesContainer.appendChild(msgDiv);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  messages.appendChild(wrapper);
+  messages.scrollTop = messages.scrollHeight;
+  return wrapper;
 }
 
-// 🎤 Voice Recording
-let mediaRecorder;
-let audioChunks = [];
-
-micButton.addEventListener("click", async () => {
-    if (!mediaRecorder || mediaRecorder.state === "inactive") {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-            const audioUrl = URL.createObjectURL(audioBlob);
-
-            // Send to UI with Replay
-            appendMessage(audioUrl, "right", true);
-
-            // Send to server
-            socket.emit("voice message", audioBlob);
-
-            audioChunks = [];
-        };
-
-        mediaRecorder.start();
-        micButton.textContent = "⏹ Stop";
-    } else {
-        mediaRecorder.stop();
-        micButton.textContent = "🎤 Voice";
-    }
+// Seen event
+socket.on("seen", function() {
+  if (myLastMessage) {
+    const stat = myLastMessage.querySelector(".status");
+    if (stat) stat.innerText = "Seen";
+  }
 });
 
-// Receive voice note
-socket.on("voice message", (arrayBuffer) => {
-    const audioBlob = new Blob([arrayBuffer], { type: "audio/webm" });
-    const audioUrl = URL.createObjectURL(audioBlob);
+// Typing event
+input.addEventListener("input", () => {
+  socket.emit("typing", room);
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    socket.emit("stopTyping", room);
+  }, 1000);
+});
 
-    appendMessage(audioUrl, "left", true);
+socket.on("typing", () => {
+  typingDiv.innerText = "User is typing...";
+});
+
+socket.on("stopTyping", () => {
+  typingDiv.innerText = "";
+});
+
+// Update participants
+socket.on("participants", (count) => {
+  participantsSpan.innerText = count;
 });
