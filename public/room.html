@@ -2,23 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>iMessage Clone</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chat Room</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="chat-container">
-    <div id="top-bar">
-      <span id="room-name"></span>
-      <span id="participants">0</span>
+  <div class="chat-container">
+    <div class="messages" id="messages"></div>
+    <div class="input-container">
+      <input id="msg" type="text" placeholder="Type a message...">
+      <input id="file" type="file" hidden>
+      <button id="send">Send</button>
+      <button id="camera">📷</button>
+      <button id="voice">🎤</button>
     </div>
-    <div id="messages"></div>
-    <div id="typing"></div>
-    <form id="form" action="">
-      <input id="input" autocomplete="off" placeholder="iMessage..." />
-      <button>➤</button>
-    </form>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
