@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const rooms = {};
 
 // Replace this with your ntfy topic URL
-const NTFY_TOPIC_URL = "https://ntfy.sh/dailynotes0327";
+const NTFY_TOPIC_URL = "https://ntfy.sh/your-topic";
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
@@ -26,7 +26,7 @@ io.on("connection", (socket) => {
     io.to(room).emit("participants", rooms[room].size);
 
     // Send ntfy notification when a user joins
-    const joinMessage = `A user has joined the room: ${room}`;
+    const joinMessage = `🟢 A user has joined the room: ${room} (ID: ${socket.id})`;
     axios.post(NTFY_TOPIC_URL, joinMessage)
       .then(() => console.log("ntfy join notification sent"))
       .catch(err => console.error("ntfy error:", err));
@@ -59,7 +59,7 @@ io.on("connection", (socket) => {
         io.to(room).emit("participants", rooms[room].size);
 
         // Send ntfy notification when a user disconnects
-        const leaveMessage = `A user has left the room: ${room}`;
+        const leaveMessage = `🔴 A user has left the room: ${room} (ID: ${socket.id})`;
         axios.post(NTFY_TOPIC_URL, leaveMessage)
           .then(() => console.log("ntfy leave notification sent"))
           .catch(err => console.error("ntfy error:", err));
