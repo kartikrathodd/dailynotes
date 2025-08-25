@@ -1,23 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Chat Room</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="chat-container">
-    <div class="messages" id="messages"></div>
-    <div class="input-container">
-      <input id="msg" type="text" placeholder="Type a message...">
-      <input id="file" type="file" hidden>
-      <button id="send">Send</button>
-      <button id="camera">📷</button>
-      <button id="voice">🎤</button>
+<html>
+  <head>
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="chat-container">
+      <ul id="messages"></ul>
+      <div id="typing"></div>
+      <form id="chat-form">
+        <input id="msg" autocomplete="off" placeholder="Type a message..." />
+        <button>➤</button>
+      </form>
     </div>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="client.js"></script>
-</body>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+  </body>
 </html>
