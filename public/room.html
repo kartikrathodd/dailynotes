@@ -20,8 +20,16 @@
 
     <!-- Fixed input bar -->
     <form id="form" action="">
+      <!-- Photo upload button -->
+      <label for="photo-input" class="icon-button">📷</label>
+      <input type="file" id="photo-input" accept="image/*">
+
+      <!-- Voice note button -->
+      <button type="button" id="voice-btn" class="icon-button">🎤</button>
+
+      <!-- Message input -->
       <input id="input" autocomplete="off" placeholder="iMessage..." />
-      <button>➤</button>
+      <button type="submit">➤</button>
     </form>
   </div>
   <script src="/socket.io/socket.io.js"></script>
