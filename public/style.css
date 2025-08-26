@@ -37,9 +37,10 @@ body, html {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
-  padding-bottom: 70px; /* 👈 Add this so messages don’t go behind input */
+  padding-bottom: 90px; /* more space for input bar */
   box-sizing: border-box;
 }
+
 
 /* Each message bubble */
 .message {
