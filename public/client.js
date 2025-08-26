@@ -1,18 +1,16 @@
 // -------------------- SOCKET.IO CONNECTION --------------------
-// -------------------- SOCKET.IO CONNECTION --------------------
 const socket = io("/", {
-  transports: ["websocket", "polling"], // ✅ allow fallback to polling during wake-up
-  upgrade: true,                        // ✅ let it upgrade to websocket once ready
-  timeout: 60000,                       // 60s timeout for cold start
+  transports: ["websocket", "polling"], 
+  upgrade: true,                        
+  timeout: 60000,                       
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 2000,
   reconnectionDelayMax: 10000
 });
 
-
 // -------------------- LOADING INDICATOR --------------------
-const loadingIndicator = document.getElementById("loading-indicator"); // add this div in HTML
+const loadingIndicator = document.getElementById("loading-indicator"); 
 function showLoading(msg) {
   if (loadingIndicator) {
     loadingIndicator.innerText = msg;
@@ -89,6 +87,23 @@ socket.on("reconnect_failed", () => {
   console.log("❌ Failed to reconnect. Please refresh.");
   showLoading("Unable to connect. Please refresh.");
   setInputsDisabled(true);
+});
+
+// -------------------- USER JOIN / LEAVE --------------------
+socket.on("user-joined", () => {
+  const notice = document.createElement("div");
+  notice.classList.add("notice");
+  notice.innerText = "🔵 A user joined the chat";
+  messages.appendChild(notice);
+  autoScroll();
+});
+
+socket.on("user-left", () => {
+  const notice = document.createElement("div");
+  notice.classList.add("notice");
+  notice.innerText = "🔴 A user left the chat";
+  messages.appendChild(notice);
+  autoScroll();
 });
 
 // -------------------- SEND TEXT MESSAGE --------------------
