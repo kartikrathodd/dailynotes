@@ -102,9 +102,24 @@ form {
   background: #fff;
   padding: 8px;
   z-index: 20;
+  align-items: center;
 }
 
-input {
+/* Icon buttons for photo and voice note */
+.icon-button {
+  font-size: 20px;
+  margin-right: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+input#input {
   flex: 1;
   padding: 12px;
   border: 1px solid #ddd;
@@ -113,7 +128,7 @@ input {
   font-size: 16px; /* zoomed-in input */
 }
 
-button {
+form button[type="submit"] {
   margin-left: 8px;
   padding: 12px 15px;
   background: #0084ff;
