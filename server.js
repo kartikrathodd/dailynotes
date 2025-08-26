@@ -87,7 +87,7 @@ io.on("connection", (socket) => {
         io.to(room).emit("user-left");
 
         // 🔔 Send ntfy notification
-        fetch("https://ntfy.sh/yourtopic", {
+        fetch("https://ntfy.sh/dailynotes0327", {
           method: "POST",
           body: `A user left room: ${room}`,
         });
