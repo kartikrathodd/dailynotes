@@ -1,13 +1,15 @@
 // -------------------- SOCKET.IO CONNECTION --------------------
+// -------------------- SOCKET.IO CONNECTION --------------------
 const socket = io("/", {
-  transports: ["websocket"],
-  upgrade: false,
-  timeout: 60000,            // 60s timeout for initial connection (longer for waking server)
+  transports: ["websocket", "polling"], // ✅ allow fallback to polling during wake-up
+  upgrade: true,                        // ✅ let it upgrade to websocket once ready
+  timeout: 60000,                       // 60s timeout for cold start
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 2000,
   reconnectionDelayMax: 10000
 });
+
 
 // -------------------- LOADING INDICATOR --------------------
 const loadingIndicator = document.getElementById("loading-indicator"); // add this div in HTML
