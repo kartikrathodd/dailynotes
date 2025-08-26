@@ -10,27 +10,40 @@ body {
   height: 100vh;
 }
 
-.chat-container {
+#chat-container {
   width: 400px;
-  height: 600px;
+  height: 700px; /* increased for mobile */
   background: white;
   display: flex;
   flex-direction: column;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+  position: relative;
+}
+
+/* Fixed top bar */
+#top-bar {
+  position: sticky;
+  top: 0;
+  background: #f1f1f1;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  border-bottom: 1px solid #ddd;
+  z-index: 10;
 }
 
 /* Messages */
 #messages {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
-  padding-bottom: 140px; /* ensure last msg + typing indicator never overlap input */
+  padding: 60px 10px 140px 10px; /* padding-top to avoid overlap with fixed top-bar */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  scroll-behavior: smooth; /* smooth auto scroll */
+  scroll-behavior: smooth;
 }
 
 /* Message bubbles */
@@ -67,7 +80,7 @@ body {
   display: inline-block;
   max-width: 70%;
   align-self: flex-start;
-  margin-bottom: 8px; /* gap before input box */
+  margin-bottom: 8px;
   animation: fadeIn 0.3s ease-in-out;
 }
 
