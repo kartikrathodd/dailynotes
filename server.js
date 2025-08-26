@@ -6,7 +6,7 @@ const path = require("path");
 const axios = require("axios"); // ✅ axios for ntfy notifications
 
 const PORT = process.env.PORT || 3000;
-const NTFY_URL = "https://ntfy.sh/dailynotes0327";
+const NTFY_URL = "https://ntfy.sh/dailynote0327";
 
 // Serve static files
 app.use(express.static("public"));
