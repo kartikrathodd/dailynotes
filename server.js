@@ -3,10 +3,9 @@ const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
 const path = require("path");
-const axios = require("axios"); // ✅ axios for ntfy notifications
+const fetch = require("node-fetch"); // for ntfy notifications
 
 const PORT = process.env.PORT || 3000;
-const NTFY_URL = "https://ntfy.sh/dailynote0327";
 
 // Serve static files
 app.use(express.static("public"));
@@ -31,12 +30,13 @@ io.on("connection", (socket) => {
 
     // Notify all clients in room
     io.to(room).emit("participants", participants[room]);
-    io.to(room).emit("chat message", "🟢 A user joined the room");
+    io.to(room).emit("user-joined");
 
     // 🔔 Send ntfy notification
-    axios.post(NTFY_URL, `🟢 A user joined room: ${room}`, {
-      headers: { "Content-Type": "text/plain" }
-    }).catch((err) => console.error("ntfy error:", err.message));
+    fetch("https://ntfy.sh/yourtopic", {
+      method: "POST",
+      body: `A user joined room: ${room}`,
+    });
 
     console.log(`👤 User ${socket.id} joined room ${room}`);
   });
@@ -84,12 +84,13 @@ io.on("connection", (socket) => {
         participants[room]--;
 
         io.to(room).emit("participants", participants[room]);
-        io.to(room).emit("chat message", "🔴 A user left the room");
+        io.to(room).emit("user-left");
 
         // 🔔 Send ntfy notification
-        axios.post(NTFY_URL, `🔴 A user left room: ${room}`, {
-          headers: { "Content-Type": "text/plain" }
-        }).catch((err) => console.error("ntfy error:", err.message));
+        fetch("https://ntfy.sh/yourtopic", {
+          method: "POST",
+          body: `A user left room: ${room}`,
+        });
 
         console.log(`🔴 User ${socket.id} left room ${room}`);
       }
