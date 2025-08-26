@@ -20,7 +20,7 @@ roomName.innerText = "Room: " + room;
 socket.emit("joinRoom", room);
 
 // Send message
-form.addEventListener("submit", function (e) {
+form.addEventListener("submit", function(e) {
   e.preventDefault();
   if (input.value) {
     const msg = { text: input.value, sender: socket.id, room: room };
@@ -31,14 +31,14 @@ form.addEventListener("submit", function (e) {
 });
 
 // Listen for messages
-socket.on("chat message", function (msg) {
+socket.on("chat message", function(msg) {
   if (msg.sender !== socket.id) {
     addMessage(msg, "received");
     socket.emit("seen", { room, sender: msg.sender });
   }
 });
 
-// Add message
+// Add message with upward smooth animation
 function addMessage(msg, type) {
   const wrapper = document.createElement("div");
   wrapper.classList.add("message", type);
@@ -51,24 +51,33 @@ function addMessage(msg, type) {
     wrapper.appendChild(stat);
   }
 
+  // --- 👇 Animation part ---
+  wrapper.style.opacity = "0";
+  wrapper.style.transform = "translateY(20px)";
+  wrapper.style.transition = "all 0.3s ease";
+
   messages.appendChild(wrapper);
 
-  // ✅ use helper autoscroll
-  autoScroll();
+  requestAnimationFrame(() => {
+    wrapper.style.opacity = "1";
+    wrapper.style.transform = "translateY(0)";
+  });
+  // --- 👆 Animation part ---
 
+  autoScroll();
   return wrapper;
 }
 
-// ✅ Auto-scroll helper (keeps 40px clear for typing div)
+// ✅ Auto-scroll helper
 function autoScroll() {
   messages.scrollTo({
-    top: messages.scrollHeight - 40,
-    behavior: "smooth",
+    top: messages.scrollHeight,
+    behavior: "smooth"
   });
 }
 
 // Seen event
-socket.on("seen", function () {
+socket.on("seen", function() {
   if (myLastMessage) {
     const stat = myLastMessage.querySelector(".status");
     if (stat) stat.innerText = "Seen";
@@ -109,3 +118,4 @@ function updateTypingDiv() {
 socket.on("participants", (count) => {
   participantsSpan.innerText = count;
 });
+
