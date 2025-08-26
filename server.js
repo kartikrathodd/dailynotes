@@ -12,6 +12,7 @@ const io = new Server(server, {
   maxHttpBufferSize: 10 * 1024 * 1024 // 10 MB
 });
 
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
 // Ensure uploads folder exists
@@ -36,8 +37,9 @@ setInterval(() => {
       });
     });
   });
-}, 10 * 60 * 1000); // 10 min interval
+}, 10 * 60 * 1000);
 
+// Socket.io connection
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
@@ -48,14 +50,13 @@ io.on("connection", (socket) => {
     rooms[room].add(socket.id);
     io.to(room).emit("participants", rooms[room].size);
 
-    const joinMessage = `🟢 A user joined: ${room} (ID: ${socket.id})`;
-    axios.post(NTFY_TOPIC_URL, joinMessage).catch(() => {});
+    // Send notification asynchronously
+    axios.post(NTFY_TOPIC_URL, `🟢 A user joined: ${room} (ID: ${socket.id})`)
+      .catch(() => {}); // fail silently
   });
 
   // Chat message
-  socket.on("chat message", (msg) => {
-    io.to(msg.room).emit("chat message", msg);
-  });
+  socket.on("chat message", (msg) => io.to(msg.room).emit("chat message", msg));
 
   // Seen
   socket.on("seen", (data) => io.to(data.room).emit("seen"));
@@ -64,7 +65,7 @@ io.on("connection", (socket) => {
   socket.on("typing", (room) => socket.to(room).emit("typing", { id: socket.id }));
   socket.on("stopTyping", (room) => socket.to(room).emit("stopTyping", { id: socket.id }));
 
-  // -------------------- SEND PHOTO --------------------
+  // Send photo
   socket.on("send-photo", ({ data, name, room }) => {
     try {
       const matches = data.match(/^data:(image\/jpeg|image\/png);base64,(.+)$/);
@@ -72,34 +73,29 @@ io.on("connection", (socket) => {
 
       const ext = matches[1].split("/")[1];
       const buffer = Buffer.from(matches[2], "base64");
-
-      if (buffer.length > 5 * 1024 * 1024) return; // 5MB limit
+      if (buffer.length > 5 * 1024 * 1024) return;
 
       const filename = crypto.randomBytes(8).toString("hex") + "." + ext;
       const filePath = path.join(UPLOAD_DIR, filename);
-
       fs.writeFile(filePath, buffer, (err) => {
-        if (err) return;
-        io.to(room).emit("receive-photo", { url: `/uploads/${filename}`, sender: socket.id });
+        if (!err) io.to(room).emit("receive-photo", { url: `/uploads/${filename}`, sender: socket.id });
       });
     } catch (e) {}
   });
 
-  // -------------------- SEND VOICE --------------------
+  // Send voice
   socket.on("send-voice", ({ data, room }) => {
     try {
       const matches = data.match(/^data:(audio\/webm);base64,(.+)$/);
       if (!matches) return;
 
       const buffer = Buffer.from(matches[2], "base64");
-      if (buffer.length > 5 * 1024 * 1024) return; // 5MB limit
+      if (buffer.length > 5 * 1024 * 1024) return;
 
       const filename = crypto.randomBytes(8).toString("hex") + ".webm";
       const filePath = path.join(UPLOAD_DIR, filename);
-
       fs.writeFile(filePath, buffer, (err) => {
-        if (err) return;
-        io.to(room).emit("receive-voice", { url: `/uploads/${filename}`, sender: socket.id });
+        if (!err) io.to(room).emit("receive-voice", { url: `/uploads/${filename}`, sender: socket.id });
       });
     } catch (e) {}
   });
@@ -113,14 +109,14 @@ io.on("connection", (socket) => {
     io.to(room).emit("chat-cleared");
   });
 
-  // Disconnecting
+  // Disconnect
   socket.on("disconnecting", () => {
     for (let room of socket.rooms) {
       if (rooms[room]) {
         rooms[room].delete(socket.id);
         io.to(room).emit("participants", rooms[room].size);
-        const leaveMessage = `🔴 A user left: ${room} (ID: ${socket.id})`;
-        axios.post(NTFY_TOPIC_URL, leaveMessage).catch(() => {});
+        axios.post(NTFY_TOPIC_URL, `🔴 A user left: ${room} (ID: ${socket.id})`)
+          .catch(() => {});
       }
     }
   });
@@ -129,6 +125,6 @@ io.on("connection", (socket) => {
 // Serve uploads securely
 app.use("/uploads", express.static(UPLOAD_DIR, { index: false, dotfiles: "deny" }));
 
-// -------------------- RENDER PORT HANDLING --------------------
+// ---------------- Render Dynamic Port ----------------
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
