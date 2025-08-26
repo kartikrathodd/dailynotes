@@ -50,9 +50,8 @@ io.on("connection", (socket) => {
     rooms[room].add(socket.id);
     io.to(room).emit("participants", rooms[room].size);
 
-    // Send notification asynchronously
     axios.post(NTFY_TOPIC_URL, `🟢 A user joined: ${room} (ID: ${socket.id})`)
-      .catch(() => {}); // fail silently
+      .catch(() => {});
   });
 
   // Chat message
@@ -124,6 +123,11 @@ io.on("connection", (socket) => {
 
 // Serve uploads securely
 app.use("/uploads", express.static(UPLOAD_DIR, { index: false, dotfiles: "deny" }));
+
+// ---------------- Fallback route ----------------
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // ---------------- Render Dynamic Port ----------------
 const PORT = process.env.PORT || 3000;
