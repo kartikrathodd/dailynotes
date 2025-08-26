@@ -1,14 +1,59 @@
-const socket = io({
+// -------------------- SOCKET.IO CONNECTION --------------------
+const socket = io("/", {
   transports: ["websocket"],
-  upgrade: false
+  upgrade: false,
+  timeout: 20000,            // 20 seconds timeout for initial connection
+  reconnection: true,        // enable auto-reconnect
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 2000,   // retry every 2 seconds
+  reconnectionDelayMax: 10000
 });
+
+// Optional: show connecting status on UI
+const loadingIndicator = document.getElementById("loading-indicator"); // create a div in HTML
+function showLoading(msg) {
+  if (loadingIndicator) loadingIndicator.innerText = msg;
+  if (loadingIndicator) loadingIndicator.style.display = "block";
+}
+function hideLoading() {
+  if (loadingIndicator) loadingIndicator.style.display = "none";
+}
+
+showLoading("Connecting to server...");
+
+socket.on("connect", () => {
+  console.log("✅ Connected to server:", socket.id);
+  hideLoading();
+});
+
+socket.on("connect_error", (err) => {
+  console.log("❌ Connection error:", err.message);
+  showLoading("Server is waking up..."); // Render server asleep
+});
+
+socket.on("reconnect_attempt", (attempt) => {
+  console.log("🔄 Reconnecting attempt:", attempt);
+  showLoading("Reconnecting...");
+});
+
+socket.on("reconnect", (attempt) => {
+  console.log("✅ Reconnected after attempt:", attempt);
+  hideLoading();
+});
+
+socket.on("reconnect_failed", () => {
+  console.log("❌ Failed to reconnect. Please refresh.");
+  showLoading("Unable to connect. Please refresh.");
+});
+
+// -------------------- REST OF YOUR EXISTING CODE --------------------
+// (Keep all the existing code: join room, send messages, typing, photos, voice, etc.)
 
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
 const roomName = document.getElementById("room-name");
 const participantsSpan = document.getElementById("participants");
-
 const clearBtn = document.getElementById("clear-chat-btn");
 const photoInput = document.getElementById("photo-input");
 const voiceBtn = document.getElementById("voice-btn");
@@ -18,7 +63,6 @@ let typingTimeout;
 const typingIndicators = {};
 const lastMessageByUser = {};
 
-// get room number from URL
 const urlParams = new URLSearchParams(window.location.search);
 const room = urlParams.get("room") || "default";
 roomName.innerText = "Room: " + room;
@@ -37,195 +81,4 @@ form.addEventListener("submit", function(e) {
   }
 });
 
-// Listen for messages
-socket.on("chat message", function(msg) {
-  if (msg.sender !== socket.id) {
-    removeTypingIndicator(msg.sender);
-    addMessage(msg, "received");
-    socket.emit("seen", { room, sender: msg.sender });
-  }
-});
-
-// Add message bubble
-function addMessage(msg, type) {
-  const wrapper = document.createElement("div");
-  wrapper.classList.add("message", type);
-  wrapper.innerText = msg.text;
-
-  if (type === "sent") {
-    const stat = document.createElement("div");
-    stat.classList.add("status");
-    stat.innerText = "Delivered";
-    wrapper.appendChild(stat);
-  }
-
-  wrapper.style.opacity = "0";
-  wrapper.style.transform = "translateY(20px)";
-  wrapper.style.transition = "all 0.3s ease";
-
-  messages.appendChild(wrapper);
-
-  requestAnimationFrame(() => {
-    wrapper.style.opacity = "1";
-    wrapper.style.transform = "translateY(0)";
-  });
-
-  lastMessageByUser[msg.sender] = wrapper;
-  autoScroll();
-  return wrapper;
-}
-
-function autoScroll() {
-  messages.scrollTo({
-    top: messages.scrollHeight + 80,
-    behavior: "smooth"
-  });
-}
-
-// -------------------- SEEN STATUS --------------------
-socket.on("seen", function() {
-  if (myLastMessage) {
-    const stat = myLastMessage.querySelector(".status");
-    if (stat) stat.innerText = "Seen";
-  }
-});
-
-// -------------------- TYPING INDICATORS --------------------
-input.addEventListener("input", () => {
-  socket.emit("typing", room);
-
-  clearTimeout(typingTimeout);
-  typingTimeout = setTimeout(() => {
-    socket.emit("stopTyping", room);
-  }, 1000);
-});
-
-socket.on("typing", (data) => {
-  if (!typingIndicators[data.id]) {
-    const indicator = document.createElement("div");
-    indicator.classList.add("typing-indicator");
-    indicator.innerText = "Typing...";
-
-    const lastMsg = lastMessageByUser[data.id];
-    if (lastMsg && lastMsg.nextSibling) {
-      messages.insertBefore(indicator, lastMsg.nextSibling);
-    } else {
-      messages.appendChild(indicator);
-    }
-
-    indicator.style.opacity = "0";
-    indicator.style.transform = "translateY(15px)";
-    indicator.style.transition = "all 0.3s ease";
-    requestAnimationFrame(() => {
-      indicator.style.opacity = "1";
-      indicator.style.transform = "translateY(0)";
-    });
-
-    typingIndicators[data.id] = indicator;
-  }
-  autoScroll();
-});
-
-socket.on("stopTyping", (data) => {
-  removeTypingIndicator(data.id);
-});
-
-function removeTypingIndicator(id) {
-  if (typingIndicators[id]) {
-    const indicator = typingIndicators[id];
-    indicator.style.opacity = "0";
-    indicator.style.transform = "translateY(15px)";
-    setTimeout(() => {
-      if (indicator.parentNode) messages.removeChild(indicator);
-    }, 300);
-    delete typingIndicators[id];
-  }
-}
-
-// -------------------- PARTICIPANTS --------------------
-socket.on("participants", (count) => {
-  participantsSpan.innerText = count;
-});
-
-// -------------------- CLEAR CHAT --------------------
-clearBtn.addEventListener("click", () => {
-  messages.innerHTML = "";
-  socket.emit("clear-chat", room);
-});
-
-socket.on("chat-cleared", () => {
-  messages.innerHTML = "";
-});
-
-// -------------------- PHOTO UPLOAD WITH RESIZE --------------------
-photoInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const img = new Image();
-  const reader = new FileReader();
-
-  reader.onload = () => {
-    img.src = reader.result;
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const MAX_WIDTH = 800;
-      const scaleSize = MAX_WIDTH / img.width;
-      canvas.width = MAX_WIDTH;
-      canvas.height = img.height * scaleSize;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const compressedData = canvas.toDataURL("image/jpeg", 0.7); // 70% quality
-      socket.emit("send-photo", { data: compressedData, name: file.name, room });
-    };
-  };
-
-  reader.readAsDataURL(file);
-});
-
-// -------------------- VOICE NOTE --------------------
-let mediaRecorder;
-let audioChunks = [];
-
-voiceBtn.addEventListener("click", async () => {
-  if (!mediaRecorder || mediaRecorder.state === "inactive") {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-
-    mediaRecorder.onstop = () => {
-      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-      audioChunks = [];
-      const reader = new FileReader();
-      reader.onload = () => {
-        socket.emit("send-voice", { data: reader.result, room });
-      };
-      reader.readAsDataURL(audioBlob);
-    };
-
-    mediaRecorder.start();
-    voiceBtn.textContent = "⏹️"; // stop icon
-  } else if (mediaRecorder.state === "recording") {
-    mediaRecorder.stop();
-    voiceBtn.textContent = "🎤"; // reset icon
-  }
-});
-
-// -------------------- RECEIVE PHOTO --------------------
-socket.on("receive-photo", (msg) => {
-  const div = document.createElement("div");
-  div.classList.add("message", msg.sender === socket.id ? "sent" : "received");
-  div.innerHTML = `<img src="${msg.url}" style="max-width:70%; border-radius:10px;">`;
-  messages.appendChild(div);
-  autoScroll();
-});
-
-// -------------------- RECEIVE VOICE --------------------
-socket.on("receive-voice", (msg) => {
-  const div = document.createElement("div");
-  div.classList.add("message", msg.sender === socket.id ? "sent" : "received");
-  div.innerHTML = `<audio controls src="${msg.url}"></audio>`;
-  messages.appendChild(div);
-  autoScroll();
-});
+// ... (keep all other functions: addMessage, autoScroll, typing, seen, photo, voice, receive-photo, receive-voice)
