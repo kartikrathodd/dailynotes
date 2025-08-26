@@ -36,9 +36,24 @@ body {
   justify-content: space-between;
   align-items: center;
   font-weight: bold;
-  padding: 0 15px;
+  padding: 0 10px;
   border-bottom: 1px solid #ddd;
   z-index: 20;
+}
+
+/* Clear button inside top bar */
+.clear-btn {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.clear-btn:hover {
+  background: #e60000;
 }
 
 /* Scrollable messages only */
@@ -115,10 +130,12 @@ form {
   outline: none;
 }
 
+/* Hide file input */
 input[type="file"] {
   display: none;
 }
 
+/* Message input box */
 input#input {
   flex: 1;
   padding: 12px;
@@ -128,6 +145,7 @@ input#input {
   font-size: 16px; /* zoomed-in input */
 }
 
+/* Send button */
 form button[type="submit"] {
   margin-left: 8px;
   padding: 12px 15px;
