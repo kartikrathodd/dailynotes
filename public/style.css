@@ -83,6 +83,13 @@ body, html {
   padding: 10px;
   border-top: 1px solid #ddd;
   background: #fff;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  /* Handle iOS safe area (notch/keyboard) */
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 
 #input {
@@ -105,9 +112,10 @@ body, html {
   cursor: pointer;
 }
 
-/* Typing indicator */
+/* Typing indicator stays just above the form */
 #typing {
   font-size: 13px;
   color: gray;
   padding: 5px 15px;
+  margin-bottom: 50px; /* leave space for input bar */
 }
