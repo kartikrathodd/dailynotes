@@ -1,4 +1,4 @@
-/* General styles */
+/* General body styles */
 body {
   margin: 0;
   padding: 0;
@@ -10,40 +10,44 @@ body {
   height: 100vh;
 }
 
+/* Chat container */
 #chat-container {
-  width: 95%; /* responsive width for mobile */
-  max-width: 450px;
-  height: 95%; /* more zoomed-in, fills almost entire screen */
+  width: 95%;
+  max-width: 400px;
+  height: 95%; /* zoomed-in for mobile */
   background: white;
   display: flex;
   flex-direction: column;
   border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   overflow: hidden;
   position: relative;
 }
 
-/* Fixed room info */
+/* Fixed room info bar at top */
 #fixed-room-bar {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
+  height: 50px;
   background: #f1f1f1;
-  padding: 12px 15px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-weight: bold;
+  padding: 0 15px;
   border-bottom: 1px solid #ddd;
   z-index: 20;
 }
 
-/* Messages */
+/* Scrollable messages only */
 #messages {
   flex: 1;
   overflow-y: auto;
-  padding: 60px 10px 70px 10px; /* top padding to leave space for fixed bar, bottom for input */
-  box-sizing: border-box;
+  margin-top: 50px; /* height of fixed room bar */
+  margin-bottom: 60px; /* height of input bar */
+  padding: 10px;
   display: flex;
   flex-direction: column;
   scroll-behavior: smooth;
@@ -55,7 +59,7 @@ body {
   padding: 8px 12px;
   margin: 6px 0;
   border-radius: 18px;
-  font-size: 14px;
+  font-size: 16px; /* zoomed-in text */
   word-wrap: break-word;
   display: inline-block;
 }
@@ -87,34 +91,37 @@ body {
   animation: fadeIn 0.3s ease-in-out;
 }
 
-/* Input area */
+/* Fixed input bar at bottom */
 form {
   display: flex;
-  border-top: 1px solid #ddd;
-  background: #fff;
-  padding: 8px;
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
+  border-top: 1px solid #ddd;
+  background: #fff;
+  padding: 8px;
+  z-index: 20;
 }
 
 input {
   flex: 1;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #ddd;
   border-radius: 20px;
   outline: none;
+  font-size: 16px; /* zoomed-in input */
 }
 
 button {
   margin-left: 8px;
-  padding: 10px 15px;
+  padding: 12px 15px;
   background: #0084ff;
   color: white;
   border: none;
   border-radius: 20px;
   cursor: pointer;
+  font-size: 16px;
 }
 
 /* Animation for smooth typing indicator */
