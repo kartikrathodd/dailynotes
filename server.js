@@ -33,7 +33,7 @@ io.on("connection", (socket) => {
     io.to(room).emit("user-joined");
 
     // 🔔 Send ntfy notification
-    fetch("https://ntfy.sh/yourtopic", {
+    fetch("https://ntfy.sh/dailynotes0327", {
       method: "POST",
       body: `A user joined room: ${room}`,
     });
