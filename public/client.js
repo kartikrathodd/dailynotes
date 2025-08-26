@@ -8,8 +8,8 @@ const participantsSpan = document.getElementById("participants");
 
 let myLastMessage = null;
 let typingTimeout;
-const typingUsers = new Set();
 const typingIndicators = {}; // track indicators by user
+const lastMessageByUser = {}; // track last message element for each user
 
 // get room number from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -65,14 +65,17 @@ function addMessage(msg, type) {
   });
   // -----------------
 
+  // Track last message by user
+  lastMessageByUser[msg.sender] = wrapper;
+
   autoScroll();
   return wrapper;
 }
 
-// ✅ Auto-scroll helper (with extra space at bottom)
+// ✅ Auto-scroll helper (with buffer for input box)
 function autoScroll() {
   messages.scrollTo({
-    top: messages.scrollHeight + 60, // leave buffer so input never hides text
+    top: messages.scrollHeight + 80, // bigger buffer to avoid overlap
     behavior: "smooth"
   });
 }
@@ -101,7 +104,24 @@ socket.on("typing", (data) => {
     const indicator = document.createElement("div");
     indicator.classList.add("typing-indicator");
     indicator.innerText = "Typing...";
-    messages.appendChild(indicator);
+
+    // Insert after that user's last message, or at the end
+    const lastMsg = lastMessageByUser[data.id];
+    if (lastMsg && lastMsg.nextSibling) {
+      messages.insertBefore(indicator, lastMsg.nextSibling);
+    } else {
+      messages.appendChild(indicator);
+    }
+
+    // Animate in
+    indicator.style.opacity = "0";
+    indicator.style.transform = "translateY(15px)";
+    indicator.style.transition = "all 0.3s ease";
+    requestAnimationFrame(() => {
+      indicator.style.opacity = "1";
+      indicator.style.transform = "translateY(0)";
+    });
+
     typingIndicators[data.id] = indicator;
   }
   autoScroll();
@@ -114,7 +134,15 @@ socket.on("stopTyping", (data) => {
 
 function removeTypingIndicator(id) {
   if (typingIndicators[id]) {
-    messages.removeChild(typingIndicators[id]);
+    const indicator = typingIndicators[id];
+
+    // Animate out before removing
+    indicator.style.opacity = "0";
+    indicator.style.transform = "translateY(15px)";
+    setTimeout(() => {
+      if (indicator.parentNode) messages.removeChild(indicator);
+    }, 300);
+
     delete typingIndicators[id];
   }
 }
