@@ -1,4 +1,7 @@
-const socket = io();
+const socket = io({
+  transports: ["websocket"],
+  upgrade: false
+});
 
 const form = document.getElementById("form");
 const input = document.getElementById("input");
@@ -68,7 +71,6 @@ function addMessage(msg, type) {
   });
 
   lastMessageByUser[msg.sender] = wrapper;
-
   autoScroll();
   return wrapper;
 }
@@ -155,14 +157,29 @@ socket.on("chat-cleared", () => {
   messages.innerHTML = "";
 });
 
-// -------------------- PHOTO UPLOAD --------------------
-photoInput.addEventListener("change", (e) => {
+// -------------------- PHOTO UPLOAD WITH RESIZE --------------------
+photoInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
+  const img = new Image();
   const reader = new FileReader();
+
   reader.onload = () => {
-    socket.emit("send-photo", { data: reader.result, name: file.name, room });
+    img.src = reader.result;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const MAX_WIDTH = 800;
+      const scaleSize = MAX_WIDTH / img.width;
+      canvas.width = MAX_WIDTH;
+      canvas.height = img.height * scaleSize;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const compressedData = canvas.toDataURL("image/jpeg", 0.7); // 70% quality
+      socket.emit("send-photo", { data: compressedData, name: file.name, room });
+    };
   };
+
   reader.readAsDataURL(file);
 });
 
