@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -12,19 +12,13 @@
       <span id="room-name"></span>
       <span id="participants">0</span>
     </div>
-
     <div id="messages"></div>
-
-    <!-- Input form -->
+    <div id="typing"></div>
     <form id="form" action="">
       <input id="input" autocomplete="off" placeholder="iMessage..." />
       <button>➤</button>
     </form>
-
-    <!-- Typing indicator below input -->
-    <div id="typing"></div>
   </div>
-
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
