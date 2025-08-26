@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Loading indicator -->
+  <div id="loading-indicator" style="position:fixed;top:10px;right:10px;padding:10px;background:#f1c40f;border-radius:5px;display:none;z-index:1000;"></div>
+
   <div id="chat-container">
     <!-- Fixed room info -->
     <div id="fixed-room-bar">
@@ -33,6 +36,7 @@
       <button type="submit">➤</button>
     </form>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
   <script>
