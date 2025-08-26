@@ -2,14 +2,14 @@
 const socket = io("/", {
   transports: ["websocket"],
   upgrade: false,
-  timeout: 20000,            // 20s timeout for initial connection
-  reconnection: true,        // enable auto-reconnect
+  timeout: 60000,            // 60s timeout for initial connection (longer for waking server)
+  reconnection: true,
   reconnectionAttempts: Infinity,
-  reconnectionDelay: 2000,   // retry every 2s
+  reconnectionDelay: 2000,
   reconnectionDelayMax: 10000
 });
 
-// Loading indicator
+// -------------------- LOADING INDICATOR --------------------
 const loadingIndicator = document.getElementById("loading-indicator"); // add this div in HTML
 function showLoading(msg) {
   if (loadingIndicator) {
@@ -21,32 +21,13 @@ function hideLoading() {
   if (loadingIndicator) loadingIndicator.style.display = "none";
 }
 
-showLoading("Connecting to server...");
-
-socket.on("connect", () => {
-  console.log("✅ Connected to server:", socket.id);
-  hideLoading();
-});
-
-socket.on("connect_error", (err) => {
-  console.log("❌ Connection error:", err.message);
-  showLoading("Server is waking up...");
-});
-
-socket.on("reconnect_attempt", (attempt) => {
-  console.log("🔄 Reconnecting attempt:", attempt);
-  showLoading("Reconnecting...");
-});
-
-socket.on("reconnect", (attempt) => {
-  console.log("✅ Reconnected after attempt:", attempt);
-  hideLoading();
-});
-
-socket.on("reconnect_failed", () => {
-  console.log("❌ Failed to reconnect. Please refresh.");
-  showLoading("Unable to connect. Please refresh.");
-});
+// -------------------- DISABLE / ENABLE INPUTS --------------------
+const setInputsDisabled = (state) => {
+  input.disabled = state;
+  form.querySelector("button[type=submit]").disabled = state;
+  photoInput.disabled = state;
+  voiceBtn.disabled = state;
+};
 
 // -------------------- EXISTING VARIABLES --------------------
 const form = document.getElementById("form");
@@ -67,8 +48,46 @@ const urlParams = new URLSearchParams(window.location.search);
 const room = urlParams.get("room") || "default";
 roomName.innerText = "Room: " + room;
 
-// join room
-socket.emit("joinRoom", room);
+// Initially disable inputs until connected
+setInputsDisabled(true);
+showLoading("Connecting to server...");
+
+// -------------------- SOCKET EVENTS --------------------
+socket.on("connect", () => {
+  console.log("✅ Connected to server:", socket.id);
+  hideLoading();
+  setInputsDisabled(false);
+
+  // Join room after connection
+  socket.emit("joinRoom", room);
+});
+
+socket.on("connect_error", (err) => {
+  console.log("❌ Connection error:", err.message);
+  showLoading("Server is waking up...");
+  setInputsDisabled(true);
+});
+
+socket.on("reconnect_attempt", (attempt) => {
+  console.log("🔄 Reconnecting attempt:", attempt);
+  showLoading("Reconnecting...");
+  setInputsDisabled(true);
+});
+
+socket.on("reconnect", (attempt) => {
+  console.log("✅ Reconnected after attempt:", attempt);
+  hideLoading();
+  setInputsDisabled(false);
+
+  // Re-join room on reconnection
+  socket.emit("joinRoom", room);
+});
+
+socket.on("reconnect_failed", () => {
+  console.log("❌ Failed to reconnect. Please refresh.");
+  showLoading("Unable to connect. Please refresh.");
+  setInputsDisabled(true);
+});
 
 // -------------------- SEND TEXT MESSAGE --------------------
 form.addEventListener("submit", function(e) {
@@ -81,7 +100,7 @@ form.addEventListener("submit", function(e) {
   }
 });
 
-// Listen for messages
+// -------------------- RECEIVE CHAT MESSAGE --------------------
 socket.on("chat message", function(msg) {
   if (msg.sender !== socket.id) {
     removeTypingIndicator(msg.sender);
@@ -90,7 +109,7 @@ socket.on("chat message", function(msg) {
   }
 });
 
-// Add message bubble
+// -------------------- ADD MESSAGE --------------------
 function addMessage(msg, type) {
   const wrapper = document.createElement("div");
   wrapper.classList.add("message", type);
