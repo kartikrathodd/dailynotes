@@ -50,8 +50,12 @@ io.on("connection", (socket) => {
     rooms[room].add(socket.id);
     io.to(room).emit("participants", rooms[room].size);
 
+    // ✅ System message to chat
+    io.to(room).emit("system-message", `🟢 A user joined the chat`);
+
+    // ✅ ntfy notification
     axios.post(NTFY_TOPIC_URL, `🟢 A user joined: ${room} (ID: ${socket.id})`)
-      .catch(() => {});
+      .catch(() => {}); 
   });
 
   // Chat message
@@ -77,7 +81,7 @@ io.on("connection", (socket) => {
       const filename = crypto.randomBytes(8).toString("hex") + "." + ext;
       const filePath = path.join(UPLOAD_DIR, filename);
       fs.writeFile(filePath, buffer, (err) => {
-        if (!err) io.to(room).emit("receive-photo", { url: `/uploads/${filename}`, sender: socket.id });
+        if (!err) io.to(room).emit("receive-photo", { url: `/uploads/${filename}`, sender: "User" });
       });
     } catch (e) {}
   });
@@ -94,7 +98,7 @@ io.on("connection", (socket) => {
       const filename = crypto.randomBytes(8).toString("hex") + ".webm";
       const filePath = path.join(UPLOAD_DIR, filename);
       fs.writeFile(filePath, buffer, (err) => {
-        if (!err) io.to(room).emit("receive-voice", { url: `/uploads/${filename}`, sender: socket.id });
+        if (!err) io.to(room).emit("receive-voice", { url: `/uploads/${filename}`, sender: "User" });
       });
     } catch (e) {}
   });
@@ -114,6 +118,11 @@ io.on("connection", (socket) => {
       if (rooms[room]) {
         rooms[room].delete(socket.id);
         io.to(room).emit("participants", rooms[room].size);
+
+        // ✅ System message to chat
+        io.to(room).emit("system-message", `🔴 A user left the chat`);
+
+        // ✅ ntfy notification
         axios.post(NTFY_TOPIC_URL, `🔴 A user left: ${room} (ID: ${socket.id})`)
           .catch(() => {});
       }
@@ -123,11 +132,6 @@ io.on("connection", (socket) => {
 
 // Serve uploads securely
 app.use("/uploads", express.static(UPLOAD_DIR, { index: false, dotfiles: "deny" }));
-
-// ---------------- Fallback route ----------------
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
 
 // ---------------- Render Dynamic Port ----------------
 const PORT = process.env.PORT || 3000;
