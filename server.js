@@ -4,30 +4,39 @@ const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
+const crypto = require("crypto");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
-
-const uploadsDir = path.join(__dirname, "uploads"); // move uploads outside public
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-
-app.use(express.static(path.join(__dirname, "public"))); // public for css/js/html
-
-// Serve uploaded files securely
-app.get("/uploads/:file", (req, res) => {
-  const filePath = path.join(uploadsDir, req.params.file);
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).send("File not found");
-  }
+const io = new Server(server, {
+  maxHttpBufferSize: 10 * 1024 * 1024 // 10 MB
 });
 
-const rooms = {};
-const tempMessages = {};
+app.use(express.static(path.join(__dirname, "public")));
 
+// Ensure uploads folder exists
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
+
+const rooms = {};
 const NTFY_TOPIC_URL = "https://ntfy.sh/dailynotes0327";
+
+// Clean up old files every 10 minutes
+setInterval(() => {
+  fs.readdir(UPLOAD_DIR, (err, files) => {
+    if (err) return;
+    const now = Date.now();
+    files.forEach(file => {
+      const filePath = path.join(UPLOAD_DIR, file);
+      fs.stat(filePath, (err, stats) => {
+        if (err) return;
+        if (now - stats.mtimeMs > 5 * 60 * 1000) { // older than 5 minutes
+          fs.unlink(filePath, () => {});
+        }
+      });
+    });
+  });
+}, 10 * 60 * 1000); // 10 min interval
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
@@ -39,86 +48,69 @@ io.on("connection", (socket) => {
     rooms[room].add(socket.id);
     io.to(room).emit("participants", rooms[room].size);
 
-    const joinMessage = `🟢 A user has joined room: ${room} (ID: ${socket.id})`;
-    axios.post(NTFY_TOPIC_URL, joinMessage).catch(err => console.error(err));
+    const joinMessage = `🟢 A user joined: ${room} (ID: ${socket.id})`;
+    axios.post(NTFY_TOPIC_URL, joinMessage).catch(() => {});
   });
 
   // Chat message
   socket.on("chat message", (msg) => {
-    if (!tempMessages[msg.room]) tempMessages[msg.room] = [];
-    tempMessages[msg.room].push({ msg, timestamp: Date.now() });
-
     io.to(msg.room).emit("chat message", msg);
-
-    // auto-cleanup after 5 min
-    setTimeout(() => {
-      cleanupMessages(msg.room);
-    }, 5 * 60 * 1000);
-  });
-
-  // Photo upload
-  socket.on("send-photo", (data) => {
-    const base64Data = data.data.replace(/^data:image\/\w+;base64,/, "");
-    const fileName = `${Date.now()}-${data.name}`;
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFile(filePath, base64Data, "base64", (err) => {
-      if (err) console.error(err);
-      else {
-        const msg = { type: "photo", url: `/uploads/${fileName}`, room: data.room, sender: socket.id };
-        if (!tempMessages[data.room]) tempMessages[data.room] = [];
-        tempMessages[data.room].push({ msg, timestamp: Date.now() });
-        io.to(data.room).emit("receive-photo", msg);
-
-        setTimeout(() => cleanupMessages(data.room), 5 * 60 * 1000);
-      }
-    });
-  });
-
-  // Voice note upload
-  socket.on("send-voice", (data) => {
-    const base64Data = data.data.replace(/^data:audio\/\w+;base64,/, "");
-    const fileName = `${Date.now()}-voice.webm`;
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFile(filePath, base64Data, "base64", (err) => {
-      if (err) console.error(err);
-      else {
-        const msg = { type: "voice", url: `/uploads/${fileName}`, room: data.room, sender: socket.id };
-        if (!tempMessages[data.room]) tempMessages[data.room] = [];
-        tempMessages[data.room].push({ msg, timestamp: Date.now() });
-        io.to(data.room).emit("receive-voice", msg);
-
-        setTimeout(() => cleanupMessages(data.room), 5 * 60 * 1000);
-      }
-    });
-  });
-
-  // Clear chat manually
-  socket.on("clear-chat", (room) => {
-    tempMessages[room] = [];
-
-    // Delete files from uploads folder
-    fs.readdir(uploadsDir, (err, files) => {
-      if (err) console.error(err);
-      for (const file of files) {
-        fs.unlink(path.join(uploadsDir, file), err => { if(err) console.error(err); });
-      }
-    });
-
-    io.to(room).emit("chat-cleared");
   });
 
   // Seen
-  socket.on("seen", (data) => {
-    io.to(data.room).emit("seen");
-  });
+  socket.on("seen", (data) => io.to(data.room).emit("seen"));
 
   // Typing indicators
-  socket.on("typing", (room) => {
-    socket.to(room).emit("typing", { id: socket.id });
+  socket.on("typing", (room) => socket.to(room).emit("typing", { id: socket.id }));
+  socket.on("stopTyping", (room) => socket.to(room).emit("stopTyping", { id: socket.id }));
+
+  // -------------------- SEND PHOTO --------------------
+  socket.on("send-photo", ({ data, name, room }) => {
+    try {
+      const matches = data.match(/^data:(image\/jpeg|image\/png);base64,(.+)$/);
+      if (!matches) return;
+
+      const ext = matches[1].split("/")[1];
+      const buffer = Buffer.from(matches[2], "base64");
+
+      if (buffer.length > 5 * 1024 * 1024) return; // 5MB limit
+
+      const filename = crypto.randomBytes(8).toString("hex") + "." + ext;
+      const filePath = path.join(UPLOAD_DIR, filename);
+
+      fs.writeFile(filePath, buffer, (err) => {
+        if (err) return;
+        io.to(room).emit("receive-photo", { url: `/uploads/${filename}`, sender: socket.id });
+      });
+    } catch (e) {}
   });
 
-  socket.on("stopTyping", (room) => {
-    socket.to(room).emit("stopTyping", { id: socket.id });
+  // -------------------- SEND VOICE --------------------
+  socket.on("send-voice", ({ data, room }) => {
+    try {
+      const matches = data.match(/^data:(audio\/webm);base64,(.+)$/);
+      if (!matches) return;
+
+      const buffer = Buffer.from(matches[2], "base64");
+      if (buffer.length > 5 * 1024 * 1024) return; // 5MB limit
+
+      const filename = crypto.randomBytes(8).toString("hex") + ".webm";
+      const filePath = path.join(UPLOAD_DIR, filename);
+
+      fs.writeFile(filePath, buffer, (err) => {
+        if (err) return;
+        io.to(room).emit("receive-voice", { url: `/uploads/${filename}`, sender: socket.id });
+      });
+    } catch (e) {}
+  });
+
+  // Clear chat
+  socket.on("clear-chat", (room) => {
+    fs.readdir(UPLOAD_DIR, (err, files) => {
+      if (err) return;
+      files.forEach(file => fs.unlink(path.join(UPLOAD_DIR, file), () => {}));
+    });
+    io.to(room).emit("chat-cleared");
   });
 
   // Disconnecting
@@ -127,21 +119,14 @@ io.on("connection", (socket) => {
       if (rooms[room]) {
         rooms[room].delete(socket.id);
         io.to(room).emit("participants", rooms[room].size);
-
-        const leaveMessage = `🔴 A user has left room: ${room} (ID: ${socket.id})`;
-        axios.post(NTFY_TOPIC_URL, leaveMessage).catch(err => console.error(err));
+        const leaveMessage = `🔴 A user left: ${room} (ID: ${socket.id})`;
+        axios.post(NTFY_TOPIC_URL, leaveMessage).catch(() => {});
       }
     }
   });
 });
 
-// Helper: clean old messages
-function cleanupMessages(room) {
-  if (!tempMessages[room]) return;
-  const now = Date.now();
-  tempMessages[room] = tempMessages[room].filter(m => now - m.timestamp < 5 * 60 * 1000);
-}
+// Serve uploads securely
+app.use("/uploads", express.static(UPLOAD_DIR, { index: false, dotfiles: "deny" }));
 
-server.listen(3000, () => {
-  console.log("Server running on port 3000");
-});
+server.listen(3000, () => console.log("Server running on port 3000"));
