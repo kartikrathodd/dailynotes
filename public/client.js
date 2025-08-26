@@ -20,7 +20,7 @@ roomName.innerText = "Room: " + room;
 socket.emit("joinRoom", room);
 
 // Send message
-form.addEventListener("submit", function (e) {
+form.addEventListener("submit", function(e) {
   e.preventDefault();
   if (input.value) {
     const msg = { text: input.value, sender: socket.id, room: room };
@@ -31,7 +31,7 @@ form.addEventListener("submit", function (e) {
 });
 
 // Listen for messages
-socket.on("chat message", function (msg) {
+socket.on("chat message", function(msg) {
   if (msg.sender !== socket.id) {
     removeTypingIndicator(msg.sender); // remove typing if message arrives
     addMessage(msg, "received");
@@ -72,16 +72,16 @@ function addMessage(msg, type) {
   return wrapper;
 }
 
-// ✅ Auto-scroll helper (account for input box + safe area)
+// ✅ Auto-scroll helper (with buffer for input box)
 function autoScroll() {
   messages.scrollTo({
-    top: messages.scrollHeight,
-    behavior: "smooth",
+    top: messages.scrollHeight + 80, // bigger buffer to avoid overlap
+    behavior: "smooth"
   });
 }
 
 // Seen event
-socket.on("seen", function () {
+socket.on("seen", function() {
   if (myLastMessage) {
     const stat = myLastMessage.querySelector(".status");
     if (stat) stat.innerText = "Seen";
