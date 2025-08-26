@@ -114,9 +114,14 @@ body, html {
 }
 
 /* Typing indicator stays just above the form */
-#typing {
-  font-size: 13px;
-  color: gray;
-  padding: 5px 15px;
-  margin-bottom: 50px; /* leave space for input bar */
+.typing-indicator {
+  background: #e5e5ea;
+  color: #111;
+  padding: 6px 12px;
+  margin: 5px;
+  border-radius: 18px;
+  font-size: 14px;
+  display: inline-block;
+  max-width: 70%;
+  align-self: flex-start; /* left side like WhatsApp */
 }
