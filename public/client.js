@@ -3,13 +3,13 @@ const socket = io();
 const form = document.getElementById("form");
 const input = document.getElementById("input");
 const messages = document.getElementById("messages");
-const typingDiv = document.getElementById("typing");
 const roomName = document.getElementById("room-name");
 const participantsSpan = document.getElementById("participants");
 
 let myLastMessage = null;
 let typingTimeout;
 const typingUsers = new Set();
+const typingIndicators = {}; // track indicators by user
 
 // get room number from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -33,6 +33,7 @@ form.addEventListener("submit", function(e) {
 // Listen for messages
 socket.on("chat message", function(msg) {
   if (msg.sender !== socket.id) {
+    removeTypingIndicator(msg.sender); // remove typing if message arrives
     addMessage(msg, "received");
     socket.emit("seen", { room, sender: msg.sender });
   }
@@ -51,7 +52,7 @@ function addMessage(msg, type) {
     wrapper.appendChild(stat);
   }
 
-  // --- 👇 Animation part ---
+  // --- Animation ---
   wrapper.style.opacity = "0";
   wrapper.style.transform = "translateY(20px)";
   wrapper.style.transition = "all 0.3s ease";
@@ -62,16 +63,16 @@ function addMessage(msg, type) {
     wrapper.style.opacity = "1";
     wrapper.style.transform = "translateY(0)";
   });
-  // --- 👆 Animation part ---
+  // -----------------
 
   autoScroll();
   return wrapper;
 }
 
-// ✅ Auto-scroll helper
+// ✅ Auto-scroll helper (with extra space at bottom)
 function autoScroll() {
   messages.scrollTo({
-    top: messages.scrollHeight,
+    top: messages.scrollHeight + 60, // leave buffer so input never hides text
     behavior: "smooth"
   });
 }
@@ -94,23 +95,27 @@ input.addEventListener("input", () => {
   }, 1000);
 });
 
+// Show typing indicator just below last message of that user
 socket.on("typing", (data) => {
-  typingUsers.add(data.id);
-  updateTypingDiv();
+  if (!typingIndicators[data.id]) {
+    const indicator = document.createElement("div");
+    indicator.classList.add("typing-indicator");
+    indicator.innerText = "Typing...";
+    messages.appendChild(indicator);
+    typingIndicators[data.id] = indicator;
+  }
+  autoScroll();
 });
 
+// Remove typing indicator
 socket.on("stopTyping", (data) => {
-  typingUsers.delete(data.id);
-  updateTypingDiv();
+  removeTypingIndicator(data.id);
 });
 
-function updateTypingDiv() {
-  if (typingUsers.size === 0) {
-    typingDiv.innerText = "";
-  } else if (typingUsers.size === 1) {
-    typingDiv.innerText = "User is typing...";
-  } else {
-    typingDiv.innerText = "Multiple users are typing...";
+function removeTypingIndicator(id) {
+  if (typingIndicators[id]) {
+    messages.removeChild(typingIndicators[id]);
+    delete typingIndicators[id];
   }
 }
 
@@ -118,4 +123,3 @@ function updateTypingDiv() {
 socket.on("participants", (count) => {
   participantsSpan.innerText = count;
 });
-
