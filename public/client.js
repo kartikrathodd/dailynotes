@@ -52,8 +52,19 @@ function addMessage(msg, type) {
   }
 
   messages.appendChild(wrapper);
-  messages.scrollTop = messages.scrollHeight;
+
+  // ✅ use helper autoscroll
+  autoScroll();
+
   return wrapper;
+}
+
+// ✅ Auto-scroll helper
+function autoScroll() {
+  messages.scrollTo({
+    top: messages.scrollHeight,
+    behavior: "smooth"
+  });
 }
 
 // Seen event
